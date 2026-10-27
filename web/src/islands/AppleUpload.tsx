@@ -21,6 +21,14 @@ export default function AppleUpload({ open, onOpenChange, onUploaded }: { open: 
     let sent = 0;
     let percent = 0;
     let uploads = Promise.resolve();
+    let failed = false;
+    const fail = (message: string) => {
+      if (failed) return;
+      failed = true;
+      w.terminate();
+      setPhase({ kind: "error", message });
+    };
+    w.onerror = () => fail("Couldn't read that file in this browser. Try the export.zip from your iPhone.");
     setPhase({ kind: "working", percent: 0, sent: 0 });
     w.onmessage = (e: MessageEvent<ParserMessage>) => {
       const m = e.data;
@@ -29,22 +37,23 @@ export default function AppleUpload({ open, onOpenChange, onUploaded }: { open: 
         setPhase({ kind: "working", percent, sent });
       } else if (m.type === "batch") {
         // Batches go up one at a time, in order, while parsing continues.
-        uploads = uploads.then(async () => {
-          await uploadAppleBatch(uploadId, m.records);
-          sent += m.records.length;
-          setPhase({ kind: "working", percent, sent });
-        });
-      } else if (m.type === "done") {
-        uploads
-          .then(() => setPhase({ kind: "done", records: m.records, seconds: Math.round(m.ms / 100) / 10 }))
+        uploads = uploads
+          .then(async () => {
+            if (failed) return;
+            await uploadAppleBatch(uploadId, m.records);
+            sent += m.records.length;
+            setPhase({ kind: "working", percent, sent });
+          })
           .catch((err) => {
-            onUnauthorized(err);
-            setPhase({ kind: "error", message: "Upload failed. Check your connection and try again." });
+            if (!onUnauthorized(err)) fail("Upload failed. Check your connection and try again.");
           });
+      } else if (m.type === "done") {
+        uploads.then(() => {
+          if (!failed) setPhase({ kind: "done", records: m.records, seconds: Math.round(m.ms / 100) / 10 });
+        });
         w.terminate();
       } else {
-        setPhase({ kind: "error", message: m.message });
-        w.terminate();
+        fail(m.message);
       }
     };
     w.postMessage({ type: "parse", file });

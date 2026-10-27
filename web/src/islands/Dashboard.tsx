@@ -220,6 +220,7 @@ export default function Dashboard() {
   const [me, setMe] = useState<Me | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [reviewing, setReviewing] = useState<ReviewItem | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([getDashboard<DashboardData>(), getMe(), getProviders()])
@@ -228,10 +229,27 @@ export default function Dashboard() {
         setMe(m);
         setProviders(p);
       })
-      .catch(onUnauthorized);
+      .catch((e) => !onUnauthorized(e) && setLoadFailed(true));
   }, []);
   useEffect(load, [load]);
 
+  if (loadFailed)
+    return (
+      <div className="grid justify-items-start gap-3">
+        <p role="alert" className="text-sm text-destructive">
+          Couldn't load your dashboard. Check your connection.
+        </p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setLoadFailed(false);
+            load();
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
   if (!data || !me) return <p className="text-sm text-muted-foreground">Loading your dashboard…</p>;
   const connected = providers.filter(isConnected);
   const lastSync = connected.map((p) => p.connection?.lastSyncAt).filter(Boolean).sort().at(-1);

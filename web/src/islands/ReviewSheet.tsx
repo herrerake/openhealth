@@ -24,11 +24,16 @@ export default function ReviewSheet({ item, onClose, onResolved }: { item: Revie
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     setDetail(null);
     setError(null);
-    if (item) getSession<SessionDetail>(item.sessionKey).then(setDetail).catch(onUnauthorized);
+    setLoadFailed(false);
+    if (item)
+      getSession<SessionDetail>(item.sessionKey)
+        .then(setDetail)
+        .catch((e) => !onUnauthorized(e) && setLoadFailed(true));
   }, [item]);
 
   const act = async (action: string, payload?: Record<string, string>) => {
@@ -39,8 +44,7 @@ export default function ReviewSheet({ item, onClose, onResolved }: { item: Revie
       onClose();
       onResolved();
     } catch (e) {
-      onUnauthorized(e);
-      setError("That didn't save. Try again.");
+      if (!onUnauthorized(e)) setError("That didn't save. Try again.");
     } finally {
       setBusy(false);
     }
@@ -58,7 +62,11 @@ export default function ReviewSheet({ item, onClose, onResolved }: { item: Revie
             {item && new Date(`${item.localDate}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })}
           </SheetDescription>
         </SheetHeader>
-        {!detail ? (
+        {loadFailed ? (
+          <p role="alert" className="text-sm text-destructive">
+            Couldn't load this workout. Close and try again.
+          </p>
+        ) : !detail ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
           <>

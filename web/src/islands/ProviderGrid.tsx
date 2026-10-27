@@ -17,7 +17,10 @@ export default function ProviderGrid() {
   const [appleOpen, setAppleOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  const load = () => getProviders().then(setProviders).catch(onUnauthorized);
+  const load = () =>
+    getProviders()
+      .then(setProviders)
+      .catch((e) => !onUnauthorized(e) && setNotice("Couldn't load your accounts. Refresh to try again."));
   useEffect(() => {
     load();
   }, []);
@@ -37,7 +40,7 @@ export default function ProviderGrid() {
       location.assign("/onboarding/sync");
     } catch (e) {
       setSyncing(false);
-      onUnauthorized(e);
+      if (!onUnauthorized(e)) setNotice("Couldn't start the sync. Try again.");
     }
   };
 

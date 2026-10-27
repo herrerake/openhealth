@@ -33,3 +33,11 @@ const r2 = (...args: string[]) =>
 /** Demo-only fault injection: the mock provider returns 500 while this flag exists. */
 export const failMock = (provider: string) => r2("put", `openhealth-raw/mock/fail/${provider}`, "--pipe");
 export const clearMockFailure = (provider: string) => r2("delete", `openhealth-raw/mock/fail/${provider}`);
+
+/** A fresh athlete with WodUp, Mindbody and Apple Health synced; the page is left on the sync screen. */
+export async function syncedAthlete(page: Page): Promise<void> {
+  await onboardAndConnect(page, ["WodUp", "Mindbody"]);
+  await uploadApple(page);
+  await page.getByRole("button", { name: "Sync 3 accounts" }).click();
+  await expect(page.getByRole("link", { name: "See your dashboard" })).toBeVisible({ timeout: 90_000 });
+}

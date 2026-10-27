@@ -9,10 +9,14 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-/** Sends the athlete to onboarding when their session is missing or no longer valid. */
-export function onUnauthorized(e: unknown): void {
-  if (e instanceof UnauthorizedError) location.replace("/onboarding");
-  else throw e;
+/**
+ * Sends the athlete to onboarding when their session is missing or no longer valid.
+ * Returns true when it did; any other error is the caller's to show.
+ */
+export function onUnauthorized(e: unknown): boolean {
+  if (!(e instanceof UnauthorizedError)) return false;
+  location.replace("/onboarding");
+  return true;
 }
 
 export interface Me {
