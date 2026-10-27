@@ -376,7 +376,7 @@ async function heatmap(ctx: TileContext): Promise<TileEnvelope> {
     type: "heatmap_52w",
     value,
     display: `${value.reduce((a, d) => a + d.sessions, 0)} sessions in 52 weeks`,
-    context: `${yearSessions?.n ?? 0} sessions this year · ${lateCancels?.n ?? 0} late cancels`,
+    context: `${yearSessions?.n ?? 0} sessions this year · ${lateCancels?.n ?? 0} late cancel${lateCancels?.n === 1 ? "" : "s"}`,
     calc: calc(description, { query: `sessions and source records, ${from}…${ctx.asOf}` }),
   };
 }

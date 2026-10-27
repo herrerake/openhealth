@@ -10,7 +10,7 @@
     "fixtures": "node fixtures/generate.mjs && node fixtures/validate.mjs && tsx scripts/apple-records.ts",
     "seed:mock": "sh scripts/seed-mock.sh",
     "demo:sync": "tsx scripts/demo-sync.ts",
-    "typecheck": "tsc --noEmit && tsc -p web --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p web --noEmit && tsc -p e2e --noEmit",
     "build:web": "astro build --root web",
     "dev:web": "astro dev --root web",
     "e2e": "playwright test -c e2e/playwright.config.ts"

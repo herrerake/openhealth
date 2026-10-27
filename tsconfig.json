@@ -21,7 +21,6 @@
     "test",
     "scripts",
     "vitest.config.ts",
-    "worker-configuration.d.ts",
-    "e2e"
+    "worker-configuration.d.ts"
   ]
 }

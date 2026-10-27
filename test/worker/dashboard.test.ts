@@ -177,7 +177,7 @@ describe("records, recovery, heatmap, review", () => {
     expect(t.value).toHaveLength(364);
     expect(t.value.find((d: any) => d.date === "2025-06-20")).toEqual({ date: "2025-06-20", sessions: 0, hasData: false });
     expect(t.value.find((d: any) => d.date === "2025-10-20").hasData).toBe(true);
-    expect(t.context).toMatch(/^\d+ sessions this year · \d+ late cancels$/);
+    expect(t.context).toMatch(/^\d+ sessions this year · \d+ late cancels?$/);
   });
 
   it("the review queue lists the split, the conflict, and the late log", async () => {
