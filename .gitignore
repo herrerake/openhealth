@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+.dev.vars
+fixtures/data/
+out/
+assets/
+.superpowers/
+.DS_Store
