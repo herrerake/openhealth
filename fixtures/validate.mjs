@@ -42,12 +42,32 @@ if (badVisits.length) {
 }
 
 // Apple Health
+const xmlPath = join(HERE, "data/apple-health/export.xml");
 try {
-  execFileSync("xmllint", ["--noout", join(HERE, "data/apple-health/export.xml")]);
+  execFileSync("xmllint", ["--noout", xmlPath]);
   console.log("apple-health: export.xml is well-formed");
 } catch (e) {
   failed = true;
   console.error("apple-health: export.xml is not well-formed", e.stderr?.toString());
+}
+
+// Every Apple timestamp must carry the America/Los_Angeles offset in effect at that instant.
+const laOffset = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "longOffset" });
+const offsetAt = (ms) => {
+  const name = laOffset.formatToParts(new Date(ms)).find((p) => p.type === "timeZoneName").value; // "GMT-07:00"
+  return name.replace("GMT", "").replace(":", "");
+};
+let badOffsets = 0;
+for (const [, local, off] of readFileSync(xmlPath, "utf8").matchAll(/Date="(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{4})"/g)) {
+  const sign = off[0] === "-" ? -1 : 1;
+  const ms = Date.parse(`${local.replace(" ", "T")}Z`) - sign * (Number(off.slice(1, 3)) * 60 + Number(off.slice(3))) * 60_000;
+  if (offsetAt(ms) !== off) badOffsets++;
+}
+if (badOffsets) {
+  failed = true;
+  console.error(`apple-health: ${badOffsets} timestamps carry the wrong UTC offset for America/Los_Angeles`);
+} else {
+  console.log("apple-health: every timestamp carries the correct DST offset");
 }
 
 process.exit(failed ? 1 : 0);

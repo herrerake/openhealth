@@ -1,0 +1,74 @@
+import { execFileSync } from "node:child_process";
+import { statSync } from "node:fs";
+import { join } from "node:path";
+import { beforeAll, describe, expect, it } from "vitest";
+import {
+  ROOT,
+  appleWorkoutStarts,
+  appleXmlPath,
+  ensureGenerated,
+  hashGeneratedTwice,
+  maxLocalDate,
+  minLocalDate,
+  readExpected,
+} from "./fixture-helpers";
+
+let expected: any;
+beforeAll(() => {
+  ensureGenerated();
+  expected = readExpected();
+});
+
+describe("two-year fixtures", () => {
+  it("covers the two-year window", () => {
+    expect(expected.window).toEqual({ from: "2024-10-28", to: "2026-10-25" });
+    expect(minLocalDate(expected.canonicalWorkouts)).toBe("2024-10-28");
+    expect(maxLocalDate(expected.canonicalWorkouts)).toBe("2026-10-25");
+  });
+
+  it("uses PST in winter and PDT in summer", () => {
+    const starts = appleWorkoutStarts();
+    expect(starts.some((s) => s.startsWith("2025-01-") && s.endsWith("-0800"))).toBe(true);
+    expect(starts.some((s) => s.startsWith("2025-07-") && s.endsWith("-0700"))).toBe(true);
+  });
+
+  it("keeps the 12 edge cases in the final four weeks", () => {
+    const last4 = expected.canonicalWorkouts.filter((c: any) => c.localDate >= "2026-09-28");
+    expect(last4.find((c: any) => c.localDate === "2026-10-17").status).toBe("review_required");
+    expect(
+      expected.duplicates.some((d: any) => d.duplicate.startsWith("Strava|") && d.duplicate.includes("2026-10-04")),
+    ).toBe(true);
+    expect(expected.unmatchedVisits.map((u: any) => u.reason)).toEqual(
+      expect.arrayContaining(["late_cancelled", "no_show_overlaps_solo_run"]),
+    );
+    expect(expected.conflicts.some((c: any) => c.localDate === "2026-10-18")).toBe(true);
+    const flags = last4.flatMap((c: any) => c.flags);
+    for (const f of [
+      "logged_hours_later",
+      "missing_apple_workout",
+      "apple_distance_missing",
+      "missing_heart_rate_segment",
+      "untrusted_note_text",
+      "ambiguous_split_apple_workout",
+      "no_booking",
+      "utc_date_differs_from_local",
+      "conflicting_distance_and_duration",
+    ]) {
+      expect(flags).toContain(f);
+    }
+  });
+
+  it("stays under 40 MB for export.xml", () => {
+    expect(statSync(appleXmlPath).size).toBeLessThan(40 * 1024 * 1024);
+  });
+
+  it("is deterministic", () => {
+    expect(hashGeneratedTwice()).toEqual({ same: true });
+  });
+
+  it("passes validate.mjs", () => {
+    expect(execFileSync("node", [join(ROOT, "fixtures/validate.mjs")]).toString()).toContain(
+      "match the OpenAPI spec",
+    );
+  });
+});
