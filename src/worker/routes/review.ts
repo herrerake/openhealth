@@ -1,7 +1,8 @@
+import { getAgentByName } from "agents";
 import { Hono } from "hono";
 import { type ReviewItem, reviewItems } from "../dashboard/tiles";
 import type { AppEnv } from "../env";
-import { currentGeneration, runReconcile } from "../reconcileStore";
+import { currentGeneration } from "../reconcileStore";
 import { requireAthlete } from "../session";
 
 const ALLOWED: Record<ReviewItem["kind"], string[]> = { merge_split: ["merge", "split"], pick: ["pick"], confirm: ["confirm"] };
@@ -49,6 +50,7 @@ review.post("/api/review/:sessionKey", requireAthlete, async (c) => {
   await c.env.DB.prepare("INSERT INTO decisions (athlete_id, scope_key, action, payload, decided_at) VALUES (?, ?, ?, ?, ?)")
     .bind(athleteId, key, body.action, JSON.stringify(payload), new Date().toISOString())
     .run();
-  await runReconcile(c.env.DB, athleteId, c.env.SITE_TZ);
+  // Through the athlete's agent, so this can't overlap a sync's reconcile.
+  await (await getAgentByName(c.env.AthleteAgent, athleteId)).reconcileNow();
   return c.json({ ok: true, queue: await reviewItems(c.env.DB, athleteId, await currentGeneration(c.env.DB, athleteId)) });
 });

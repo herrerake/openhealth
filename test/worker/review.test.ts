@@ -1,8 +1,9 @@
 import { env } from "cloudflare:test";
+import { getAgentByName } from "agents";
 import { beforeEach, describe, expect, it } from "vitest";
 import { runReconcile } from "../../src/worker/reconcileStore";
 import { authedFetch, createAthlete } from "./helpers";
-import { insertAllFixtureRecords } from "./seed";
+import { expectedFixture, insertAllFixtureRecords } from "./seed";
 
 const TZ = "America/Los_Angeles";
 let cookie: string;
@@ -91,6 +92,23 @@ describe("review actions", () => {
 
   it("an unknown session key is not found", async () => {
     expect((await postRaw("visit:nope", { action: "confirm" })).status).toBe(404);
+  });
+});
+
+describe("reconcile serialization", () => {
+  it("concurrent reconciles leave one complete current generation", async () => {
+    const agent = await getAgentByName(env.AthleteAgent, athleteId);
+    const lateKey = await itemKey("2026-10-02");
+    await Promise.all([
+      agent.reconcileNow(),
+      agent.reconcileNow(),
+      post(lateKey, { action: "confirm" }),
+      agent.reconcileNow(),
+    ]);
+    const gen = (await env.DB.prepare("SELECT generation AS g FROM reconcile_generations WHERE athlete_id = ?").bind(athleteId).first<{ g: string }>())!.g;
+    const n = (await env.DB.prepare("SELECT count(*) AS n FROM sessions WHERE athlete_id = ? AND generation = ?").bind(athleteId, gen).first<{ n: number }>())!.n;
+    expect(n).toBe(expectedFixture.canonicalWorkouts.length);
+    expect((await get("/api/review")).map((i: any) => i.localDate)).not.toContain("2026-10-02");
   });
 });
 
