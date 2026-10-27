@@ -20,33 +20,53 @@ export default function SyncProgress() {
   const [state, setState] = useState<SyncState | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     let client: AgentClient | null = null;
-    let poll: ReturnType<typeof setInterval> | null = null;
     let heard = false;
+    let fallback: ReturnType<typeof setTimeout> | null = null;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const stopPolling = () => {
+      if (poll) clearInterval(poll);
+      poll = null;
+    };
+    const finished = (s: SyncState) => !!s.runId && (s.status === "done" || s.status === "error");
+
     getMe()
       .then((me) => {
+        if (cancelled) return;
         client = new AgentClient({
           agent: "athlete-agent",
           name: me.id,
           host: location.host,
           onStateUpdate: (s: unknown) => {
             heard = true;
+            stopPolling();
             setState(s as SyncState);
           },
         });
-        // If the socket can't open (proxies, flaky networks), fall back to polling.
-        setTimeout(() => {
-          if (heard) return;
+        // If the socket hasn't delivered state in 3 s (proxies, cold starts), poll until it does or the run ends.
+        fallback = setTimeout(() => {
+          if (heard || cancelled) return;
           poll = setInterval(async () => {
-            const r = await fetch("/api/sync/state");
-            if (r.ok) setState((await r.json()) as SyncState);
+            try {
+              const r = await fetch("/api/sync/state");
+              if (!r.ok) return;
+              const s = (await r.json()) as SyncState;
+              setState(s);
+              if (finished(s)) stopPolling();
+            } catch {
+              // transient network error: keep trying until the run ends
+            }
           }, 1000);
         }, 3000);
       })
       .catch(onUnauthorized);
+
     return () => {
+      cancelled = true;
+      if (fallback) clearTimeout(fallback);
+      stopPolling();
       client?.close();
-      if (poll) clearInterval(poll);
     };
   }, []);
 
@@ -81,9 +101,19 @@ export default function SyncProgress() {
           )}
         </div>
       ))}
-      <div className="flex items-center gap-2 text-sm">
-        <StatusIcon status={state.reconcile.status === "done" ? "done" : "running"} /> Matching workouts across sources…
+      <div
+        className="flex items-center gap-2 text-sm"
+        data-testid="sync-matching"
+        data-status={state.status === "error" && state.reconcile.status !== "done" ? "error" : state.reconcile.status}
+      >
+        <StatusIcon status={state.reconcile.status === "done" ? "done" : state.status === "error" ? "error" : "running"} /> Matching workouts across
+        sources…
       </div>
+      {state.status === "error" && (
+        <p role="alert" className="text-sm text-destructive">
+          Sync failed{state.error ? `: ${state.error}` : "."} Your earlier data is unchanged.
+        </p>
+      )}
       {state.summary && (
         <Card>
           <CardContent className="grid gap-1">

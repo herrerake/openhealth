@@ -3,6 +3,7 @@
 import { parseAppleExport } from "../../../src/core/apple/parse";
 import { unzipExport } from "../../../src/core/apple/unzip";
 import type { SourceRecordInput } from "../../../src/core/types";
+import { createUploadProgress } from "../lib/progress";
 
 export type ParserMessage =
   | { type: "progress"; percent: number }
@@ -13,11 +14,12 @@ export type ParserMessage =
 const NOT_AN_EXPORT = "That isn't an Apple Health export. On your iPhone: Health → profile → Export All Health Data.";
 
 // A reader loop rather than `for await` over the stream: Safari doesn't iterate ReadableStreams.
-async function* readChunks(file: File): AsyncIterable<Uint8Array> {
+async function* readChunks(file: File, onRead: (bytes: number) => void): AsyncIterable<Uint8Array> {
   const reader = file.stream().getReader();
   for (;;) {
     const { done, value } = await reader.read();
     if (done) return;
+    onRead(value.length);
     yield value;
   }
 }
@@ -27,17 +29,22 @@ const post = (m: ParserMessage) => self.postMessage(m);
 self.onmessage = async (e: MessageEvent<{ type: "parse"; file: File }>) => {
   const { file } = e.data;
   const started = performance.now();
-  const open = () => (file.name.toLowerCase().endsWith(".zip") ? unzipExport(readChunks(file)) : readChunks(file));
-  let records = 0;
+  const progress = createUploadProgress(file.size);
   let lastPercent = -1;
+  const onRead = (bytes: number) => {
+    progress.read(bytes);
+    const percent = progress.percent();
+    if (percent !== lastPercent) post({ type: "progress", percent: (lastPercent = percent) });
+  };
+  // The parser opens the file once per pass.
+  const open = () => {
+    progress.startPass();
+    const chunks = readChunks(file, onRead);
+    return file.name.toLowerCase().endsWith(".zip") ? unzipExport(chunks) : chunks;
+  };
+  let records = 0;
   try {
-    for await (const batch of parseAppleExport(open, {
-      batchSize: 1000,
-      onProgress: ({ pass, bytes }) => {
-        const percent = Math.min(99, Math.round(((pass - 1) * 50 + (bytes / Math.max(file.size, 1)) * 50)));
-        if (percent !== lastPercent) post({ type: "progress", percent: (lastPercent = percent) });
-      },
-    })) {
+    for await (const batch of parseAppleExport(open, { batchSize: 1000 })) {
       records += batch.length;
       post({ type: "batch", records: batch });
     }
