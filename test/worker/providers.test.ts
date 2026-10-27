@@ -1,4 +1,5 @@
-import { SELF } from "cloudflare:test";
+import { SELF, env } from "cloudflare:test";
+import { signSession } from "../../src/worker/session";
 import { describe, expect, it } from "vitest";
 import { authedFetch } from "./helpers";
 
@@ -30,6 +31,14 @@ describe("athlete session", () => {
 
   it("rejects requests without a session", async () => {
     expect((await SELF.fetch("http://x/api/providers")).status).toBe(401);
+  });
+
+  it("rejects a validly signed cookie for an athlete that no longer exists", async () => {
+    const cookie = `oh_session=${await signSession("ath_deleted", env.SESSION_SECRET)}`;
+    for (const path of ["/api/providers", "/api/me", "/api/dashboards/home"]) {
+      expect((await SELF.fetch(`http://x${path}`, { headers: { cookie } })).status).toBe(401);
+    }
+    expect((await SELF.fetch("http://x/api/sync", { method: "POST", headers: { cookie } })).status).toBe(401);
   });
 
   it("rejects a tampered cookie", async () => {
