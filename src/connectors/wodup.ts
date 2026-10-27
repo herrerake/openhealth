@@ -4,6 +4,36 @@ import type { SyncContext } from "./types";
 
 const PAGE_SIZE = 100;
 
+/** One training_session record plus one result record per result, from a WodUp API session. */
+export function wodupRecords(s: any, siteTz: string): SourceRecordInput[] {
+  const times = s.results.map((r: any) => normalizeWodupUtc(r.done_at)).sort();
+  const localDate = s.wod?.occurs_on ?? (times[0] ? utcToLocalDate(times[0], siteTz) : null);
+  return [
+    {
+      source: "wodup",
+      kind: "training_session",
+      naturalKey: `session:${s.id}`,
+      payload: { id: s.id, wod: s.wod, competition: s.competition, resultIds: s.results.map((r: any) => r.id) },
+      startUtc: times[0] ?? null,
+      endUtc: times.at(-1) ?? null,
+      localDate,
+      tz: null,
+    },
+    ...s.results.map(
+      (r: any): SourceRecordInput => ({
+        source: "wodup",
+        kind: "result",
+        naturalKey: `result:${r.id}`,
+        payload: { ...r, sessionId: s.id },
+        startUtc: normalizeWodupUtc(r.done_at),
+        endUtc: null,
+        localDate,
+        tz: null,
+      }),
+    ),
+  ];
+}
+
 /** Walks GET /api/public/athletes/{id}/training_sessions with cursor pagination (newest first). */
 export async function* syncWodup(ctx: SyncContext): AsyncIterable<SourceBatch> {
   const auth = `Basic ${btoa(`${ctx.credentials.token}:`)}`;
@@ -18,33 +48,7 @@ export async function* syncWodup(ctx: SyncContext): AsyncIterable<SourceBatch> {
     const page = await res.json<any[]>();
     if (!page.length) return;
 
-    const records: SourceRecordInput[] = [];
-    for (const s of page) {
-      const times = s.results.map((r: any) => normalizeWodupUtc(r.done_at)).sort();
-      const localDate = s.wod?.occurs_on ?? (times[0] ? utcToLocalDate(times[0], ctx.siteTz) : null);
-      records.push({
-        source: "wodup",
-        kind: "training_session",
-        naturalKey: `session:${s.id}`,
-        payload: { id: s.id, wod: s.wod, competition: s.competition, resultIds: s.results.map((r: any) => r.id) },
-        startUtc: times[0] ?? null,
-        endUtc: times.at(-1) ?? null,
-        localDate,
-        tz: null,
-      });
-      for (const r of s.results) {
-        records.push({
-          source: "wodup",
-          kind: "result",
-          naturalKey: `result:${r.id}`,
-          payload: { ...r, sessionId: s.id },
-          startUtc: normalizeWodupUtc(r.done_at),
-          endUtc: null,
-          localDate,
-          tz: null,
-        });
-      }
-    }
+    const records = page.flatMap((session) => wodupRecords(session, ctx.siteTz));
     done += page.length;
     yield { records, progress: { label: `WodUp · ${done} sessions`, done } };
     if (page.length < PAGE_SIZE) return;
