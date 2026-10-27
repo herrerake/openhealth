@@ -1,6 +1,6 @@
 # Synthetic fixtures
 
-Four weeks (2026-09-28 → 2026-10-25) of one athlete's training, shaped like the real source data, so ingestion can be built and demoed without live API access.
+Two years (2024-10-28 → 2026-10-25) of one athlete's training, shaped like the real source data, so ingestion can be built and demoed without live API access. Timestamps follow real America/Los_Angeles DST rules.
 
 ```bash
 npm install
@@ -23,13 +23,25 @@ The generator is seeded: same seed, same output.
 
 One CrossFit gym runs bookings in Mindbody and programming in WodUp. The athlete wears an Apple Watch. Classes are Mon/Tue/Thu/Fri 06:00 and Sat 09:00, with easy runs on Sundays.
 
-The supported comparisons (PRD §11):
-- **Fran:** 4:58 → 4:21.
-- **Back squat 5x5:** 205 → 235 lb.
-- **Deadlift 1RM test:** 385 lb.
-- **2k row:** 7:45 → 7:35.
+## Storylines and decoys (Story Playbook §8)
 
-## Planted edge cases
+Each storyline and decoy is listed with its facts in `expected.json → storylines[]` / `decoys[]`.
+
+| ID | What's planted |
+|---|---|
+| `fran_rematch` | 9 Frans: 5:14 → ~5:00 through mid-2026, then 4:21 on 2026-10-20 ("Unbroken thrusters. Finally.") |
+| `summer_gap` | No records in any source 2025-06-09 → 07-05; "First day back. Slow." on 07-07; squat back to 225 by 08-11 |
+| `squat_plateau` | Back squat 5x5 at 225 from 2025-08-11 until 2026-03-09, then 235, then 240–245 |
+| `long_streak` | 14 straight weeks of 4+ sessions from 2026-05-25; every other run of 4+ is capped at 9 |
+| `row_less_strain` | 2k-row watch HR falls ~9 bpm from Apr to Oct 2026 |
+| `winter_fridays` | Mindbody late-cancels cluster on Fridays, Dec–Feb |
+| `heavy_weeks` | HRV dips ~6 ms on the Mon–Wed after a 6+ session week |
+| `grip_words` | "grip" in notes on 2026-03-14, 05-16 and 10-10 |
+| `row_standout` | 7:28 2k row on 2026-04-16, then back to typical |
+| Decoy `single_great_day` | One 320 lb deadlift 3x5 day on 2025-11-13 that never repeats |
+| Decoy `short_trend` | A three-week 215 lb squat bump in April 2025, inside the noise band |
+
+## Planted edge cases (final four weeks)
 
 | Date | Case | What correct ingestion does |
 |---|---|---|
