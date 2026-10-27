@@ -76,6 +76,19 @@ describe("review actions", () => {
     expect((await get("/api/review")).map((i: any) => i.localDate)).not.toContain("2026-10-02");
   });
 
+  it("a session with two kinds of review accepts either action", async () => {
+    const key = await itemKey("2026-10-17");
+    await env.DB.prepare(
+      `UPDATE sessions SET flags = '["ambiguous_split_apple_workout","logged_hours_later"]'
+       WHERE athlete_id = ? AND session_key = ? AND generation = (SELECT generation FROM reconcile_generations WHERE athlete_id = ?)`,
+    )
+      .bind(athleteId, key, athleteId)
+      .run();
+    const kinds = (await get("/api/review")).filter((i: any) => i.sessionKey === key).map((i: any) => i.kind).sort();
+    expect(kinds).toEqual(["confirm", "merge_split"]);
+    expect((await postRaw(key, { action: "merge" })).status).toBe(200);
+  });
+
   it("an unknown session key is not found", async () => {
     expect((await postRaw("visit:nope", { action: "confirm" })).status).toBe(404);
   });

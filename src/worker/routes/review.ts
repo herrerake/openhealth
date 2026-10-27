@@ -17,14 +17,16 @@ review.post("/api/review/:sessionKey", requireAthlete, async (c) => {
   const key = c.req.param("sessionKey");
   const body = await c.req.json<{ action?: string; payload?: { field?: string; source?: string } }>().catch(() => ({}) as never);
   const generation = await currentGeneration(c.env.DB, athleteId);
-  const item = (await reviewItems(c.env.DB, athleteId, generation)).find((i) => i.sessionKey === key);
-  if (!item) {
+  // A session can need more than one kind of review (e.g. a split workout that was also logged late).
+  const items = (await reviewItems(c.env.DB, athleteId, generation)).filter((i) => i.sessionKey === key);
+  if (!items.length) {
     const exists = await c.env.DB.prepare("SELECT 1 AS x FROM sessions WHERE athlete_id = ? AND generation = ? AND session_key = ?")
       .bind(athleteId, generation, key)
       .first();
     return exists ? c.json({ error: "nothing_to_review" }, 400) : c.json({ error: "not_found" }, 404);
   }
-  if (!body?.action || !ALLOWED[item.kind].includes(body.action)) return c.json({ error: "action_not_allowed", allowed: ALLOWED[item.kind] }, 400);
+  const allowed = [...new Set(items.flatMap((i) => ALLOWED[i.kind]))];
+  if (!body?.action || !allowed.includes(body.action)) return c.json({ error: "action_not_allowed", allowed }, 400);
 
   const payload: Record<string, string> = {};
   if (body.action === "pick") {

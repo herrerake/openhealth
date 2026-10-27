@@ -161,7 +161,7 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
           {t.value.items.length === 0 && <p className="text-sm text-muted-foreground">All clear.</p>}
           {t.value.items.map((i: ReviewItem) => (
             <button
-              key={i.sessionKey}
+              key={`${i.sessionKey}:${i.kind}`}
               type="button"
               data-testid={`review-${i.localDate}`}
               onClick={() => onReview(i)}
