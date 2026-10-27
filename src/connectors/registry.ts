@@ -1,5 +1,8 @@
 import type { ProviderId } from "../core/types";
+import { syncMindbody } from "./mindbody";
+import { syncStub } from "./stubs";
 import type { Connector, ScopeDescription } from "./types";
+import { syncWodup } from "./wodup";
 
 const scopes = (...labels: string[]): ScopeDescription[] => labels.map((label) => ({ label }));
 const GENERIC = scopes("Workouts and daily activity");
@@ -13,9 +16,9 @@ export const registry: Record<ProviderId, Connector> = {
     scopes: scopes("Workouts with heart rate and calories", "Resting heart rate, HRV and sleep"),
     status: "available",
   },
-  garmin: { id: "garmin", kind: "oauth", displayName: "Garmin", category: "wearables", scopes: GENERIC, status: "available" },
-  oura: { id: "oura", kind: "oauth", displayName: "Oura", category: "wearables", scopes: GENERIC, status: "available" },
-  whoop: { id: "whoop", kind: "oauth", displayName: "WHOOP", category: "wearables", scopes: GENERIC, status: "available" },
+  garmin: { id: "garmin", kind: "oauth", displayName: "Garmin", category: "wearables", scopes: GENERIC, status: "available", sync: syncStub },
+  oura: { id: "oura", kind: "oauth", displayName: "Oura", category: "wearables", scopes: GENERIC, status: "available", sync: syncStub },
+  whoop: { id: "whoop", kind: "oauth", displayName: "WHOOP", category: "wearables", scopes: GENERIC, status: "available", sync: syncStub },
   wodup: {
     id: "wodup",
     kind: "oauth",
@@ -23,6 +26,7 @@ export const registry: Record<ProviderId, Connector> = {
     category: "gym",
     scopes: scopes("Workouts, scores and PRs", "Your notes on results", "Programs you follow"),
     status: "available",
+    sync: syncWodup,
   },
   mindbody: {
     id: "mindbody",
@@ -31,8 +35,9 @@ export const registry: Record<ProviderId, Connector> = {
     category: "gym",
     scopes: scopes("Class bookings and check-ins", "Studio and instructor"),
     status: "available",
+    sync: syncMindbody,
   },
-  hyrox: { id: "hyrox", kind: "oauth", displayName: "HYROX", category: "races", scopes: scopes("Race results and splits"), status: "available" },
+  hyrox: { id: "hyrox", kind: "oauth", displayName: "HYROX", category: "races", scopes: scopes("Race results and splits"), status: "available", sync: syncStub },
   race_results: {
     id: "race_results",
     kind: "oauth",
@@ -40,6 +45,7 @@ export const registry: Record<ProviderId, Connector> = {
     category: "races",
     scopes: scopes("Race results and splits"),
     status: "available",
+    sync: syncStub,
   },
 };
 
