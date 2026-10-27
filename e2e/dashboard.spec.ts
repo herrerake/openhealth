@@ -69,3 +69,37 @@ test("a new athlete sees empty states, not errors", async ({ browser }) => {
   await expect(fresh.getByTestId("tile-record_book")).toContainText("No data yet");
   await expect(fresh.locator("body")).not.toContainText("NaN");
 });
+
+test("the review sheet explains every source", async () => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/dashboard");
+  await page.getByTestId("review-2026-10-17").click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toContainText("Apple Watch workout");
+  await expect(sheet).toContainText("Mindbody visit");
+  await page.keyboard.press("Escape");
+});
+
+test("merging the split workout resolves it", async () => {
+  await page.goto("/dashboard");
+  await page.getByTestId("review-2026-10-17").click();
+  await page.getByRole("button", { name: "Merge into one workout" }).click();
+  await expect(page.getByRole("link", { name: "Review (2)" })).toBeVisible();
+  await expect(page.getByTestId("review-2026-10-17")).toHaveCount(0);
+});
+
+test("picking the watch values resolves the conflict", async () => {
+  await page.goto("/dashboard");
+  await page.getByTestId("review-2026-10-18").click();
+  await page.getByRole("button", { name: /Use watch: 5,210 m/ }).click();
+  await expect(page.getByTestId("review-2026-10-18")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Review (1)" })).toBeVisible();
+});
+
+test("confirming the late log clears the queue", async () => {
+  await page.goto("/dashboard");
+  await page.getByTestId("review-2026-10-02").click();
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByRole("link", { name: "Review (0)" })).toBeVisible();
+  await expect(page.getByTestId("tile-review_queue")).toContainText("All clear");
+});
