@@ -13,3 +13,8 @@ sync.post("/api/sync", requireAthlete, async (c) => {
   const { runId } = await agent.startSync(body.providers as never);
   return c.json({ runId }, 202);
 });
+
+sync.get("/api/sync/state", requireAthlete, async (c) => {
+  const agent = await getAgentByName(c.env.AthleteAgent, c.var.athleteId);
+  return c.json(await agent.getSyncState());
+});

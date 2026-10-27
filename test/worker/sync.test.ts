@@ -81,6 +81,8 @@ describe("sync runs", () => {
     const totals = await runTotals(again.runId!);
     expect(totals.a).toBe(0);
     expect(totals.d).toBeGreaterThan(0);
+    expect(again.providers.wodup).toMatchObject({ accepted: 0 });
+    expect(again.providers.wodup!.duplicates).toBeGreaterThan(0);
   });
 
   it("one failing provider doesn't stop the others", async () => {

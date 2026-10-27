@@ -13,6 +13,8 @@ export type ProviderProgress = {
   total?: number;
   error?: string;
   durationMs?: number;
+  accepted?: number;
+  duplicates?: number;
 };
 export type SyncSummary = {
   workouts: number;
@@ -144,7 +146,9 @@ export class AthleteAgent extends Agent<Env, SyncState> {
           lastError: lastError?.message ?? null,
           ...(lastError ? {} : { lastSyncAt: new Date().toISOString() }),
         });
-        this.updateProvider(provider, lastError ? { status: "error", error: lastError.message, durationMs } : { status: "done", durationMs }, true);
+        this.updateProvider(provider, lastError
+            ? { status: "error", error: lastError.message, durationMs }
+            : { status: "done", durationMs, accepted: counts.accepted + counts.updated, duplicates: counts.duplicates }, true);
       }
 
       this.setState({ ...this.state, reconcile: { status: "running" } });
