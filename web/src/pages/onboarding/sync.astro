@@ -1,0 +1,12 @@
+---
+import SyncProgress from "../../islands/SyncProgress";
+import App from "../../layouts/App.astro";
+---
+
+<App title="Syncing">
+  <p class="text-muted-foreground text-xs font-medium uppercase tracking-wider">4 · Syncing</p>
+  <h1 class="mt-2 text-2xl font-semibold tracking-tight">Building your history…</h1>
+  <div class="mt-6">
+    <SyncProgress client:only="react" />
+  </div>
+</App>
