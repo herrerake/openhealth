@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "openhealth",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "openhealth",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "src/db/migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "RAW", "bucket_name": "openhealth-raw" }],
+  "durable_objects": {
+    "bindings": [{ "name": "AthleteAgent", "class_name": "AthleteAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AthleteAgent"] }],
+  "vars": {
+    "SITE_TZ": "America/Los_Angeles",
+    "PROVIDER_MODE": "demo"
+  }
+}
