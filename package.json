@@ -7,7 +7,7 @@
     "test:core": "vitest run --project core",
     "test:worker": "vitest run --project worker",
     "dev": "wrangler dev",
-    "fixtures": "node fixtures/generate.mjs && node fixtures/validate.mjs",
+    "fixtures": "node fixtures/generate.mjs && node fixtures/validate.mjs && tsx scripts/apple-records.ts",
     "seed:mock": "sh scripts/seed-mock.sh",
     "demo:sync": "tsx scripts/demo-sync.ts",
     "typecheck": "tsc --noEmit"

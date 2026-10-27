@@ -41,6 +41,28 @@ openssl rand -base64 48 | npx wrangler secret put SESSION_SECRET   # first deplo
 OPENHEALTH_URL=https://openhealth.herrerake.workers.dev npm run demo:sync
 ```
 
+## CI/CD
+
+| When | Workflow | What happens |
+|---|---|---|
+| A pull request opens or updates | `ci.yml` | Fixtures, typecheck and tests (the required **Test** check), then a Worker Preview named `pr-<number>`. A comment posts its URL. |
+| A PR is merged into `main` | `deploy.yml` | The same checks, then D1 migrations, fixture seeding and `wrangler deploy` to production |
+| A PR closes | `preview-cleanup.yml` | Deletes that PR's Preview |
+
+**Preview isolation:**
+- Each Preview gets its own Durable Object namespace automatically.
+- D1 and R2 point at `openhealth-preview` / `openhealth-raw-preview` (the `previews` block in `wrangler.jsonc`).
+- `SESSION_SECRET` comes from the Preview base config.
+
+**Repository settings** (one-time):
+
+| Setting | Value |
+|---|---|
+| Secret `CLOUDFLARE_API_TOKEN` | Workers Scripts: Edit, D1: Edit, Workers R2 Storage: Edit, Account Settings: Read |
+| Variable `CLOUDFLARE_ACCOUNT_ID` | — |
+
+`main` is protected: changes land through a pull request with a passing **Test** check and one approval.
+
 ## Tests
 
 ```bash

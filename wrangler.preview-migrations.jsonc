@@ -1,0 +1,13 @@
+// Applies D1 migrations to the shared preview database (wrangler.jsonc → previews.d1_databases).
+//   npx wrangler d1 migrations apply PREVIEW_DB --remote --config wrangler.preview-migrations.jsonc
+{
+  "name": "openhealth",
+  "d1_databases": [
+    {
+      "binding": "PREVIEW_DB",
+      "database_name": "openhealth-preview",
+      "database_id": "e243db90-a34b-4d79-b08c-3931bde0893d",
+      "migrations_dir": "src/db/migrations"
+    }
+  ]
+}

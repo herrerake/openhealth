@@ -1,0 +1,50 @@
+# Merges to main: run the same checks as pull requests, then deploy to production.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+    # ci.yml's preview job (skipped on push) declares this; callers must grant what callees request.
+    permissions:
+      contents: read
+      pull-requests: write
+
+  deploy:
+    name: Deploy production
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://openhealth.herrerake.workers.dev
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate demo fixtures
+        run: node fixtures/generate.mjs
+      - name: Migrate the production database
+        run: npx wrangler d1 migrations apply openhealth --remote
+      - name: Seed demo provider fixtures
+        run: npm run seed:mock -- --remote
+      - name: Deploy
+        run: npx wrangler deploy --message "${{ github.sha }}"
+      - name: Probe production
+        run: curl --fail --show-error --silent https://openhealth.herrerake.workers.dev/api/health

@@ -1,0 +1,102 @@
+# Pull requests: test, then deploy a Worker Preview (pr-<number>) and comment its URL.
+# Also called by deploy.yml so production only ships code that passed the same checks.
+name: CI
+
+on:
+  pull_request:
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get install -y --no-install-recommends libxml2-utils
+      - run: npm ci
+      - run: npm run fixtures
+      - run: npm run typecheck
+      - run: npm test
+
+  preview:
+    name: Preview
+    needs: test
+    # Only for pull requests from this repository (forks don't get deploy secrets).
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      PREVIEW_NAME: pr-${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate demo fixtures
+        run: node fixtures/generate.mjs
+      - name: Migrate the preview database
+        run: npx wrangler d1 migrations apply PREVIEW_DB --remote --config wrangler.preview-migrations.jsonc
+      - name: Seed the preview bucket
+        run: |
+          for key in wodup/training_sessions.json mindbody/client_visits.json; do
+            npx wrangler r2 object put "openhealth-raw-preview/mock/$key" --file "fixtures/data/$key" --remote
+          done
+      - name: Deploy Preview
+        id: deploy
+        run: |
+          npx wrangler preview --name "$PREVIEW_NAME" --message "${{ github.event.pull_request.head.sha }}" --json > preview.json
+          url=$(node -e 'const j=require("./preview.json"); console.log(j.preview.urls[0])')
+          commit_url=$(node -e 'const j=require("./preview.json"); console.log(j.deployment.urls[0])')
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "commit_url=$commit_url" >> "$GITHUB_OUTPUT"
+      - name: Probe Preview
+        run: curl --fail --show-error --silent "${{ steps.deploy.outputs.url }}/api/health"
+      - name: Comment Preview URL
+        uses: actions/github-script@v7
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          COMMIT_URL: ${{ steps.deploy.outputs.commit_url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const marker = "<!-- openhealth-preview -->";
+            const body = [
+              marker,
+              "### Worker Preview",
+              "",
+              "| | |",
+              "|---|---|",
+              `| Branch preview | ${process.env.URL} |`,
+              `| This commit (\`${process.env.SHA.slice(0, 7)}\`) | ${process.env.COMMIT_URL} |`,
+              "",
+              "Isolated from production: own Durable Objects, preview D1 and R2. Try it:",
+              "```bash",
+              `OPENHEALTH_URL=${process.env.URL} npm run demo:sync`,
+              "```",
+            ].join("\n");
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });
