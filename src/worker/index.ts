@@ -1,12 +1,16 @@
 import { routeAgentRequest } from "agents";
 import { Hono } from "hono";
-import type { Env } from "./env";
+import type { AppEnv, Env } from "./env";
+import { athletes } from "./routes/athletes";
+import { providers } from "./routes/providers";
 
 export { AthleteAgent } from "./agent";
 
-export const app = new Hono<{ Bindings: Env }>();
+export const app = new Hono<AppEnv>();
 
 app.get("/api/health", (c) => c.json({ ok: true }));
+app.route("/", athletes);
+app.route("/", providers);
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

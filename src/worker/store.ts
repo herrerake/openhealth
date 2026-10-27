@@ -127,3 +127,27 @@ export async function loadSourceRecords(db: D1Database, athleteId: string): Prom
     tz: (r.tz as string | null) ?? null,
   }));
 }
+
+export interface Connection {
+  provider: string;
+  status: "connected" | "syncing" | "error" | "disconnected";
+  mode: "demo" | "live" | "file";
+  credentials: { token: string; externalId: string } | null;
+  lastSyncAt: string | null;
+  lastError: string | null;
+}
+
+export async function getConnections(db: D1Database, athleteId: string): Promise<Connection[]> {
+  const { results } = await db
+    .prepare("SELECT provider, status, mode, credentials, last_sync_at, last_error FROM connections WHERE athlete_id = ? ORDER BY provider")
+    .bind(athleteId)
+    .all<Record<string, string | null>>();
+  return results.map((r) => ({
+    provider: String(r.provider),
+    status: r.status as Connection["status"],
+    mode: r.mode as Connection["mode"],
+    credentials: r.credentials ? JSON.parse(r.credentials) : null,
+    lastSyncAt: r.last_sync_at,
+    lastError: r.last_error,
+  }));
+}

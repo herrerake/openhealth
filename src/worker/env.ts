@@ -8,3 +8,5 @@ export interface Env {
   PROVIDER_MODE: "demo" | "live";
   SESSION_SECRET: string;
 }
+
+export type AppEnv = { Bindings: Env; Variables: { athleteId: string } };
