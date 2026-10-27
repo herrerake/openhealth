@@ -66,8 +66,9 @@ export async function insertSourceRecords(
   const unique = new Map<string, SourceRecordInput>();
   for (const r of recs) {
     const id = `${r.source}\u0000${r.naturalKey}`;
+    // A key repeated within one batch counts once; the last version wins, so batching never changes the result.
     if (unique.has(id)) counts.duplicates++;
-    else unique.set(id, r);
+    unique.set(id, r);
   }
 
   const bySource = new Map<string, SourceRecordInput[]>();

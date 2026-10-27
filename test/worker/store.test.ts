@@ -49,6 +49,15 @@ describe("source record store", () => {
     expect(await loadSourceRecords(env.DB, "a3")).toHaveLength(1200);
   });
 
+  it("keeps the last version when one batch repeats a key with different payloads", async () => {
+    expect(await insertSourceRecords(env.DB, "a5", "r1", [rec("result:y", { v: 1 }), rec("result:y", { v: 2 })])).toEqual({
+      accepted: 1,
+      duplicates: 1,
+      updated: 0,
+    });
+    expect((await loadSourceRecords(env.DB, "a5"))[0].payload).toEqual({ v: 2 });
+  });
+
   it("treats a record repeated within one batch as one record", async () => {
     expect(await insertSourceRecords(env.DB, "a4", "r1", [rec("result:x", { v: 1 }), rec("result:x", { v: 1 })])).toEqual({
       accepted: 1,

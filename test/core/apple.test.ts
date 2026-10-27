@@ -130,6 +130,27 @@ describe("Apple Health export parser", () => {
     expect((await all(parseAppleExport(() => unzipExport(fileChunks(zipPath))))).length).toBe(recs.length);
   }, 60_000);
 
+  it("reads only the workout's own metadata and statistics, not nested activities", async () => {
+    const w = await oneWorkout(`<Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="40" durationUnit="min" sourceName="Watch" startDate="2026-10-18 07:00:00 -0700" endDate="2026-10-18 07:40:00 -0700">
+  <MetadataEntry key="HKIndoorWorkout" value="0"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-10-18 07:00:00 -0700" endDate="2026-10-18 07:40:00 -0700" sum="8" unit="km"/>
+  <WorkoutActivity uuid="a" startDate="2026-10-18 07:00:00 -0700" endDate="2026-10-18 07:20:00 -0700">
+   <MetadataEntry key="HKIndoorWorkout" value="1"/>
+   <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-10-18 07:00:00 -0700" endDate="2026-10-18 07:20:00 -0700" sum="3" unit="km"/>
+  </WorkoutActivity>
+  <WorkoutRoute sourceName="Watch"><MetadataEntry key="HKMetadataKeySyncVersion" value="2"/></WorkoutRoute>
+ </Workout>`);
+    expect(w.payload).toMatchObject({ indoor: false, totals: { distance_m: 8000 } });
+    expect((w.payload as any).metadata).toEqual({ HKIndoorWorkout: "0" });
+  });
+
+  it("keeps in-bed and asleep segments that share a start", async () => {
+    const sleep = (value: string, end: string) =>
+      `<Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="AutoSleep" startDate="2026-10-17 22:40:00 -0700" endDate="${end}" value="${value}"/>`;
+    const out = await all(parseAppleExport(() => chunksOf(wrap(sleep("HKCategoryValueSleepAnalysisInBed", "2026-10-18 06:30:00 -0700") + sleep("HKCategoryValueSleepAnalysisAsleepCore", "2026-10-18 05:55:00 -0700")))));
+    expect(new Set(out.map((r) => r.naturalKey)).size).toBe(2);
+  });
+
   it("fails clearly on malformed XML", async () => {
     await expect(all(parseAppleExport(() => chunksOf("<HealthData><Workout")))).rejects.toThrow(/Apple Health export.*malformed/);
   });

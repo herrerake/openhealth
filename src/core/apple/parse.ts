@@ -110,6 +110,9 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
   const queue: SourceRecordInput[] = [];
   const workoutTimes = new Map<string, ReturnType<typeof timing>>();
   let current: { attrs: Attrs; metadata: Record<string, string>; statistics: AppleWorkoutPayload["statistics"] } | null = null;
+  // Element names from the root down; only direct children of <Workout> describe the workout itself
+  // (nested WorkoutActivity / WorkoutRoute elements carry their own metadata and statistics).
+  const stack: string[] = [];
 
   const addSample = (t: number, bpm: number) => {
     let lo = 0;
@@ -135,6 +138,8 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
 
   const pass2: Handlers = {
     open(name, a) {
+      const parent = stack.at(-1);
+      stack.push(name);
       if (name === "Record") {
         if (a.type === HEART_RATE && a.startDate) addSample(instant(a.startDate), Number(a.value));
         else if (DAILY_TYPES.has(a.type) && a.startDate && a.endDate) {
@@ -149,21 +154,25 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
           queue.push({
             source: "apple_health",
             kind: "daily_metric",
-            naturalKey: `daily:${a.type}|${a.sourceName}|${a.startDate}`,
+            // Category records (sleep stages) can share a start with a different value, e.g. InBed and AsleepCore.
+            naturalKey: a.type.startsWith("HKCategory")
+              ? `daily:${a.type}|${a.sourceName}|${a.startDate}|${a.value}`
+              : `daily:${a.type}|${a.sourceName}|${a.startDate}`,
             payload,
             ...timing(a.startDate, a.endDate),
           });
         }
       } else if (name === "Workout") {
         current = { attrs: a, metadata: {}, statistics: {} };
-      } else if (current && name === "MetadataEntry") {
+      } else if (current && parent === "Workout" && name === "MetadataEntry") {
         current.metadata[a.key] = a.value;
-      } else if (current && name === "WorkoutStatistics") {
+      } else if (current && parent === "Workout" && name === "WorkoutStatistics") {
         const num = (v?: string) => (v == null ? undefined : Number(v));
         current.statistics[a.type] = { sum: num(a.sum), average: num(a.average), minimum: num(a.minimum), maximum: num(a.maximum), unit: a.unit };
       }
     },
     close(name) {
+      stack.pop();
       if (name !== "Workout" || !current) return;
       const a = current.attrs;
       const indoor = current.metadata.HKIndoorWorkout;
