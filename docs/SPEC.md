@@ -334,7 +334,7 @@ The ⓘ on every tile renders `calc`.
 
 ### 8.3 Review actions (B5)
 
-- `POST /api/review/:sessionId` with `{ action, payload }` writes a `decisions` row.
+- `POST /api/review/:sessionKey` with `{ action, payload }` writes a `decisions` row (session keys are stable across reconcile generations; ids are not).
 - It re-runs reconcile for that local date and returns the updated session and tiles.
 - Merge, split, pick and confirm are all reversible from the session detail.
 
