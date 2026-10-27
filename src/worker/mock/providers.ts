@@ -9,6 +9,13 @@ export const MOCK_MINDBODY_CLIENT = "100015482";
 
 export const mockProviders = new Hono<AppEnv>();
 
+// Demo-only fault injection: while R2 holds mock/fail/<provider>, that provider's data endpoint returns 500.
+mockProviders.use("/mock/:provider/*", async (c, next) => {
+  if (c.req.path.includes("/oauth/")) return next();
+  if (await c.env.RAW.head(`mock/fail/${c.req.param("provider")}`)) return c.json({ errors: [{ detail: "injected failure" }] }, 500);
+  return next();
+});
+
 const num = (v: string | undefined) => (v === undefined ? undefined : Number(v));
 
 // WodUp: GET /api/public/athletes/{id}/training_sessions with HTTP Basic auth (API key as username).

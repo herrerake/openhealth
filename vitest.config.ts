@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
+import agents from "agents/vite";
 import { defineConfig } from "vitest/config";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -17,6 +18,8 @@ export default defineConfig({
       },
       {
         plugins: [
+          // TC39 decorators (@callable) — Oxc doesn't transform them yet.
+          agents(),
           cloudflareTest(async () => ({
             wrangler: { configPath: `${root}wrangler.jsonc` },
             miniflare: {

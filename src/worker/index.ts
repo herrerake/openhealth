@@ -5,6 +5,7 @@ import { registerInternalHandler } from "./internal";
 import { mockOAuth } from "./mock/oauthRoutes";
 import { mockProviders } from "./mock/providers";
 import { connect } from "./routes/connect";
+import { sync } from "./routes/sync";
 import { athletes } from "./routes/athletes";
 import { providers } from "./routes/providers";
 
@@ -18,6 +19,7 @@ app.route("/", providers);
 app.route("/", mockProviders);
 app.route("/", mockOAuth);
 app.route("/", connect);
+app.route("/", sync);
 
 registerInternalHandler((request, env) => app.fetch(request, env));
 
