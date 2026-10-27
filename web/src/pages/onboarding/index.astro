@@ -1,8 +1,53 @@
 ---
 import App from "../../layouts/App.astro";
+
+const input =
+  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
 ---
 
 <App title="Welcome">
   <p class="text-muted-foreground text-xs font-medium uppercase tracking-wider">1 · Welcome</p>
   <h1 class="mt-2 text-2xl font-semibold tracking-tight">Your training, covered like a pro's.</h1>
+  <p class="text-muted-foreground mt-2 text-sm">
+    Bring every app you train with into one place. We read your data; you own it, and nothing is shared without your approval.
+  </p>
+  <form id="welcome" class="mt-6 grid gap-4">
+    <label class="grid gap-2 text-sm font-medium" for="name">Name
+      <input id="name" name="name" required autocomplete="name" class={input} />
+    </label>
+    <label class="grid gap-2 text-sm font-medium" for="sport">Primary sport
+      <select id="sport" name="sport" class={input}>
+        <option value="crossfit">CrossFit</option>
+        <option value="running">Running</option>
+        <option value="hyrox">HYROX</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+    <label class="grid gap-2 text-sm font-medium" for="tz">Time zone
+      <input id="tz" name="tz" required class={input} />
+    </label>
+    <p id="error" class="text-destructive hidden text-sm" role="alert"></p>
+    <button type="submit" class="bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-4 text-sm font-medium shadow-xs">
+      Continue
+    </button>
+  </form>
+  <script>
+    import { createAthlete } from "../../lib/api";
+
+    const form = document.getElementById("welcome") as HTMLFormElement;
+    const tz = form.elements.namedItem("tz") as HTMLInputElement;
+    tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      try {
+        await createAthlete({ name: String(data.get("name")), primarySport: String(data.get("sport")), tz: String(data.get("tz")) });
+        location.assign("/onboarding/connect");
+      } catch {
+        const error = document.getElementById("error")!;
+        error.textContent = "Check your name and time zone (for example America/Los_Angeles).";
+        error.classList.remove("hidden");
+      }
+    });
+  </script>
 </App>

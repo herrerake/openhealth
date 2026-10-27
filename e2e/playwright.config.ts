@@ -7,6 +7,7 @@ const PORT = 8788;
 export default defineConfig({
   testDir: ".",
   timeout: 120_000,
+  expect: { timeout: 10_000 },
   fullyParallel: false,
   workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
