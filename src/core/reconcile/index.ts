@@ -153,30 +153,27 @@ export function reconcile(input: { records: StoredSourceRecord[]; decisions: Dec
     }
   }
 
-  // 4. Attach WodUp sessions: by WOD day when exactly one class that day, else to a nearby Apple workout.
+  // 4. Attach WodUp sessions to the class on the WOD's day (the one that ended nearest the log when
+  //    there are several). Otherwise, and for logs without a WOD, attach to the unclaimed Apple
+  //    workout that ended within 90 min of the log, on any date (a workout can cross midnight).
   const anchorsByDate = new Map<string, Draft[]>();
   for (const d of drafts) anchorsByDate.set(d.anchor!.localDate!, [...(anchorsByDate.get(d.anchor!.localDate!) ?? []), d]);
+  const draftEnd = (d: Draft) => Math.max(ms(d.anchor!.endUtc), ...d.apple.map((w) => ms(w.endUtc)));
   for (const s of wodupSessions) {
     const occursOn = (s.payload as any).wod?.occurs_on as string | undefined;
-    const sameDay = occursOn ? (anchorsByDate.get(occursOn) ?? []) : [];
-    if (occursOn && sameDay.length === 1 && !sameDay[0].wodup) {
-      const d = sameDay[0];
-      d.wodup = s;
-      if (ms(s.startUtc) - ms(d.anchor!.endUtc) > LOGGED_LATE_MS) d.flags.add("logged_hours_later");
+    const done = ms(s.startUtc);
+    const open = occursOn ? (anchorsByDate.get(occursOn) ?? []).filter((d) => !d.wodup) : [];
+    const anchor = open.sort((a, b) => Math.abs(done - draftEnd(a)) - Math.abs(done - draftEnd(b)) || a.anchor!.id - b.anchor!.id)[0];
+    if (anchor) {
+      anchor.wodup = s;
+      if (done - ms(anchor.anchor!.endUtc) > LOGGED_LATE_MS) anchor.flags.add("logged_hours_later");
       continue;
     }
-    if (!occursOn) {
-      const done = ms(s.startUtc);
-      const near = primaryWorkouts
-        .filter((w) => !claimed.has(w.id) && w.localDate === s.localDate && Math.abs(done - ms(w.endUtc)) <= WODUP_TO_APPLE_MS)
-        .sort((a, b) => Math.abs(done - ms(a.endUtc)) - Math.abs(done - ms(b.endUtc)) || a.id - b.id)[0];
-      if (near) {
-        claimed.add(near.id);
-        drafts.push({ anchor: null, apple: [near], wodup: s, flags: new Set() });
-        continue;
-      }
-    }
-    drafts.push({ anchor: null, apple: [], wodup: s, flags: new Set() });
+    const near = primaryWorkouts
+      .filter((w) => !claimed.has(w.id) && Math.abs(done - ms(w.endUtc)) <= WODUP_TO_APPLE_MS)
+      .sort((a, b) => Math.abs(done - ms(a.endUtc)) - Math.abs(done - ms(b.endUtc)) || a.id - b.id)[0];
+    if (near) claimed.add(near.id);
+    drafts.push({ anchor: null, apple: near ? [near] : [], wodup: s, flags: new Set() });
   }
 
   // 5. Leftover Apple workouts become their own sessions.
