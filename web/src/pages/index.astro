@@ -1,0 +1,10 @@
+---
+import App from "../layouts/App.astro";
+---
+
+<App title="OpenHealth">
+  <p class="text-muted-foreground text-sm">Loading…</p>
+  <script>
+    fetch("/api/me").then((r) => location.replace(r.ok ? "/dashboard" : "/onboarding"));
+  </script>
+</App>

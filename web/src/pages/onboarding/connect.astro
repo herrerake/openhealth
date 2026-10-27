@@ -1,0 +1,13 @@
+---
+import ProviderGrid from "../../islands/ProviderGrid";
+import App from "../../layouts/App.astro";
+---
+
+<App title="Connect your accounts">
+  <p class="text-muted-foreground text-xs font-medium uppercase tracking-wider">2 · Connect your accounts</p>
+  <h1 class="mt-2 text-2xl font-semibold tracking-tight">Where does your training live?</h1>
+  <p class="text-muted-foreground mt-2 text-sm">Connect as many as you use. Read-only. Disconnect anytime.</p>
+  <div class="mt-6">
+    <ProviderGrid client:load />
+  </div>
+</App>

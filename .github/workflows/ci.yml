@@ -26,8 +26,33 @@ jobs:
       - run: sudo apt-get install -y --no-install-recommends libxml2-utils
       - run: npm ci
       - run: npm run fixtures
+      - run: npm run build:web
       - run: npm run typecheck
       - run: npm test
+
+  e2e:
+    name: E2E
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get install -y --no-install-recommends libxml2-utils
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run fixtures
+      - run: npm run e2e
+        env:
+          CI: "true"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
 
   preview:
     name: Preview
@@ -61,14 +86,12 @@ jobs:
           for key in wodup/training_sessions.json mindbody/client_visits.json; do
             npx wrangler r2 object put "openhealth-raw-preview/mock/$key" --file "fixtures/data/$key" --remote
           done
+      - run: npm run build:web
       - name: Deploy Preview
         id: deploy
         run: |
-          npx wrangler preview --name "$PREVIEW_NAME" --message "${{ github.event.pull_request.head.sha }}" --json > preview.json
-          url=$(node -e 'const j=require("./preview.json"); console.log(j.preview.urls[0])')
-          commit_url=$(node -e 'const j=require("./preview.json"); console.log(j.deployment.urls[0])')
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "commit_url=$commit_url" >> "$GITHUB_OUTPUT"
+          npx wrangler preview --name "$PREVIEW_NAME" --message "${{ github.event.pull_request.head.sha }}" --json > preview.out
+          node scripts/preview-urls.mjs preview.out >> "$GITHUB_OUTPUT"
       - name: Probe Preview
         run: curl --fail --show-error --silent "${{ steps.deploy.outputs.url }}/api/health"
       - name: Comment Preview URL

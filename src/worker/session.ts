@@ -34,6 +34,9 @@ export async function verifySession(value: string | undefined, secret: string): 
 export const requireAthlete = createMiddleware<AppEnv>(async (c, next) => {
   const athleteId = await verifySession(getCookie(c, SESSION_COOKIE), c.env.SESSION_SECRET);
   if (!athleteId) return c.json({ error: "unauthorized" }, 401);
+  // A valid signature isn't enough: the athlete may have been deleted since the cookie was issued.
+  const exists = await c.env.DB.prepare("SELECT 1 AS x FROM athletes WHERE id = ?").bind(athleteId).first();
+  if (!exists) return c.json({ error: "unauthorized" }, 401);
   c.set("athleteId", athleteId);
   await next();
 });

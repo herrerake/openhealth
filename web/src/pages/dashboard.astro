@@ -1,0 +1,8 @@
+---
+import Dashboard from "../islands/Dashboard";
+import App from "../layouts/App.astro";
+---
+
+<App title="Dashboard" wide>
+  <Dashboard client:only="react" />
+</App>

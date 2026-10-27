@@ -3,7 +3,7 @@ import { registry } from "../connectors/registry";
 import type { ProviderId } from "../core/types";
 import type { Env } from "./env";
 import { internalFetch, mockBaseUrl } from "./internal";
-import { runReconcile } from "./reconcileStore";
+import { type ReconcileSummary, runReconcile } from "./reconcileStore";
 import { getConnections, insertSourceRecords, upsertConnection } from "./store";
 
 export type ProviderProgress = {
@@ -41,6 +41,18 @@ const STATE_INTERVAL_MS = 100;
 export class AthleteAgent extends Agent<Env, SyncState> {
   initialState: SyncState = { runId: null, status: "idle", providers: {}, reconcile: { status: "pending" }, summary: null };
   private lastStateAt = 0;
+  private reconcileChain: Promise<unknown> = Promise.resolve();
+
+  /**
+   * Every reconcile for this athlete runs here, one at a time. Two overlapping rebuilds would each
+   * delete the other's generation, leaving the athlete with no current sessions.
+   */
+  @callable()
+  reconcileNow(): Promise<ReconcileSummary> {
+    const next = this.reconcileChain.then(() => runReconcile(this.env.DB, this.name, this.env.SITE_TZ));
+    this.reconcileChain = next.catch(() => undefined);
+    return next;
+  }
 
   @callable()
   getSyncState(): SyncState {
@@ -153,7 +165,7 @@ export class AthleteAgent extends Agent<Env, SyncState> {
       }
 
       this.setState({ ...this.state, reconcile: { status: "running" } });
-      const r = await runReconcile(this.env.DB, athleteId, this.env.SITE_TZ);
+      const r = await this.reconcileNow();
       timings.reconcile = r.durationMs;
       const total = await this.env.DB.prepare("SELECT count(*) AS n FROM source_records WHERE athlete_id = ?").bind(athleteId).first<{ n: number }>();
       timings.total = Date.now() - totalStart;

@@ -2,7 +2,7 @@
 
 ESPN-style coverage for amateur athletes. OpenHealth pulls an athlete's training data from the apps they already use into one owned history, then builds dashboards and data-backed stories on top. See [docs/PRD.md](docs/PRD.md) and [docs/SPEC.md](docs/SPEC.md).
 
-**Phase A (this branch) is the data infrastructure:**
+**Phase A, the data infrastructure:**
 - connectors (WodUp, Mindbody, Apple Health, and demo stubs for Garmin, Oura, WHOOP, HYROX and race results);
 - the D1 schema;
 - a streaming Apple Health parser;
@@ -29,6 +29,22 @@ npm run demo:sync -- --apple ~/Downloads/export.zip    # your own Health export 
 
 A second `demo:sync` reuses the same demo athlete and shows that nothing is duplicated.
 
+## Frontend
+
+The app is Astro static pages with shadcn/ui React islands, served by the same Worker (D-028, D-029).
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Builds the site and runs `wrangler dev` on :8787 (API, agents, demo providers and pages) |
+| `npm run dev:web` | Astro dev server with hot reload. It proxies `/api`, `/agents` and `/mock` to a running `wrangler dev`. |
+| `npm run e2e` | Playwright end-to-end tests against `wrangler dev` with isolated local state (`.wrangler/e2e`) |
+
+The flow:
+1. `/onboarding`: profile.
+2. `/onboarding/connect`: providers and the Apple Health upload, parsed in the browser.
+3. `/onboarding/sync`: live progress over the athlete agent.
+4. `/dashboard`: tiles and the review sheet.
+
 ## Deploy
 
 Live demo: https://openhealth.herrerake.workers.dev
@@ -45,7 +61,7 @@ OPENHEALTH_URL=https://openhealth.herrerake.workers.dev npm run demo:sync
 
 | When | Workflow | What happens |
 |---|---|---|
-| A pull request opens or updates | `ci.yml` | Fixtures, typecheck and tests (the required **Test** check), then a Worker Preview named `pr-<number>`. A comment posts its URL. |
+| A pull request opens or updates | `ci.yml` | Fixtures, typecheck and tests (the required **Test** check), Playwright **E2E**, then a Worker Preview named `pr-<number>`. A comment posts its URL. |
 | A PR is merged into `main` | `deploy.yml` | The same checks, then D1 migrations, fixture seeding and `wrangler deploy` to production |
 | A PR closes | `preview-cleanup.yml` | Deletes that PR's Preview |
 

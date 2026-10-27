@@ -6,3 +6,9 @@ out/
 assets/
 .superpowers/
 .DS_Store
+web/dist/
+web/.astro/
+test-results/
+playwright-report/
+e2e/test-results/
+e2e/playwright-report/

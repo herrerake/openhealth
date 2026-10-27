@@ -129,6 +129,15 @@ describe("reconcile", () => {
     expect(again.conflicts.find((c) => c.field === "distance_m")).toMatchObject({ chosen: "wodup", resolvedBy: "athlete" });
   });
 
+  it("a pick without a field applies to every conflicting field", () => {
+    const run = r.sessions.find((s) => s.localDate === "2026-10-18")!;
+    const again = reconcile({ records, siteTz: TZ, decisions: [{ scopeKey: run.key, action: "pick", payload: { source: "wodup" } }] });
+    expect(again.conflicts.filter((c) => c.sessionKey === run.key).map((c) => [c.field, c.chosen, c.resolvedBy])).toEqual([
+      ["distance_m", "wodup", "athlete"],
+      ["duration_s", "wodup", "athlete"],
+    ]);
+  });
+
   it("open gym after 5 pm stays on the local date", () => {
     expect(r.sessions.find((s) => s.kind === "open_gym" && s.startUtc.startsWith("2026-10-22"))!.localDate).toBe("2026-10-21");
   });

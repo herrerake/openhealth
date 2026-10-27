@@ -59,7 +59,7 @@ flowchart LR
 | Raw storage | R2 (raw provider payloads, uploaded export files) |
 | Long-running work | Agents SDK `Agent` (Durable Object) per athlete |
 | Frontend | **Astro, static output** (D-028), built to `web/dist` and served as Workers static assets from the same Worker. `/api/*`, `/agents/*` and `/mock/*` run the Worker first; everything else is a static page. |
-| UI components | Tailwind + **shadcn/ui** tokens throughout. shadcn React components appear only as **islands** where there's interaction: consent sheet, sync progress, review actions, connect buttons. Tiles, the record book and charts are plain Astro components with no client JS. |
+| UI components | Tailwind + **shadcn/ui** tokens throughout. shadcn React components appear only as **islands** where there's interaction: consent sheet, sync progress, review actions, connect buttons. Per-athlete tiles render client-side in one dashboard island (D-029); charts are hand-rolled SVG components. Layout and onboarding copy are plain Astro. |
 | Charts | Small hand-rolled SVG Astro components (sparkline, band, heatmap, bar), rendered from tile data with no chart library |
 | XML parsing | `saxes`, streaming, in a Web Worker |
 | Tests | Vitest + `@cloudflare/vitest-plugin`; Playwright for the end-to-end onboarding test |
@@ -334,7 +334,7 @@ The ⓘ on every tile renders `calc`.
 
 ### 8.3 Review actions (B5)
 
-- `POST /api/review/:sessionId` with `{ action, payload }` writes a `decisions` row.
+- `POST /api/review/:sessionKey` with `{ action, payload }` writes a `decisions` row (session keys are stable across reconcile generations; ids are not).
 - It re-runs reconcile for that local date and returns the updated session and tiles.
 - Merge, split, pick and confirm are all reversible from the session detail.
 
@@ -352,9 +352,10 @@ The ⓘ on every tile renders `calc`.
 | WS | `/agents/athlete-agent/:athleteId` | Agent state (sync progress) |
 | GET | `/api/dashboards/:id` | Spec + tile data (`home` by default) |
 | GET | `/api/tiles/:type` | A single tile envelope |
-| GET | `/api/sessions` · `/api/sessions/:id` | Timeline and session detail with sources, conflicts and provenance |
-| GET/POST | `/api/review` · `/api/review/:sessionId` | Review queue and actions |
-| — | `/mock/:provider/*` | Demo providers (OAuth + data endpoints) |
+| GET/POST | `/api/review` · `/api/review/:sessionKey` | Review queue; merge / split / pick (a source, optionally one field) / confirm |
+| GET | `/api/sessions/:sessionKey` | Session detail: sources with summaries, results, measurements, notes, conflicts |
+| GET | `/api/sync/state` | Sync state over HTTP (fallback for the agent WebSocket) |
+| — | `/mock/:provider/*` | Demo providers (OAuth + data endpoints); the consent form POSTs |
 
 **Auth:** the demo runs with a single local athlete, chosen by a signed cookie set at onboarding. v1 uses Cloudflare Access.
 
