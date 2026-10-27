@@ -30,6 +30,7 @@ export default defineConfig({
         test: {
           name: "worker",
           include: ["test/worker/**/*.test.ts"],
+          globalSetup: ["test/global-apple-records.ts"],
           setupFiles: ["test/setup-worker.ts"],
           testTimeout: 60_000,
         },
