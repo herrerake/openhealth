@@ -39,7 +39,7 @@ describe("athlete session", () => {
 
 describe("provider catalog", () => {
   it("lists eight providers grouped by category", async () => {
-    const list = await (await authedFetch("/api/providers")).json();
+    const list = await (await authedFetch("/api/providers")).json<any[]>();
     expect(list.map((p: any) => p.id)).toEqual([
       "apple_health",
       "garmin",

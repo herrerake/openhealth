@@ -151,3 +151,38 @@ export async function getConnections(db: D1Database, athleteId: string): Promise
     lastError: r.last_error,
   }));
 }
+
+export async function upsertConnection(
+  db: D1Database,
+  athleteId: string,
+  provider: string,
+  patch: Partial<Omit<Connection, "provider">>,
+): Promise<void> {
+  const current = (await getConnections(db, athleteId)).find((c) => c.provider === provider);
+  const next = {
+    status: patch.status ?? current?.status ?? "connected",
+    mode: patch.mode ?? current?.mode ?? "demo",
+    credentials: patch.credentials !== undefined ? patch.credentials : (current?.credentials ?? null),
+    lastSyncAt: patch.lastSyncAt !== undefined ? patch.lastSyncAt : (current?.lastSyncAt ?? null),
+    lastError: patch.lastError !== undefined ? patch.lastError : (current?.lastError ?? null),
+  };
+  await db
+    .prepare(
+      `INSERT INTO connections (id, athlete_id, provider, status, mode, credentials, last_sync_at, last_error)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (athlete_id, provider) DO UPDATE SET
+         status = excluded.status, mode = excluded.mode, credentials = excluded.credentials,
+         last_sync_at = excluded.last_sync_at, last_error = excluded.last_error`,
+    )
+    .bind(
+      `${athleteId}:${provider}`,
+      athleteId,
+      provider,
+      next.status,
+      next.mode,
+      next.credentials ? JSON.stringify(next.credentials) : null,
+      next.lastSyncAt,
+      next.lastError,
+    )
+    .run();
+}

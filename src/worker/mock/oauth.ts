@@ -17,3 +17,13 @@ export async function mintMockToken(provider: ProviderId, secret: string): Promi
 export async function verifyMockToken(provider: ProviderId, token: string, secret: string): Promise<boolean> {
   return token === (await mintMockToken(provider, secret));
 }
+
+const MOCK_CODE_PREFIX = "code_";
+
+export async function mintMockCode(provider: ProviderId, state: string, secret: string): Promise<string> {
+  return `${MOCK_CODE_PREFIX}${provider}_${await hmacB64url(`code:${provider}:${state}`, secret)}`;
+}
+
+export async function verifyMockCode(provider: ProviderId, state: string, code: string, secret: string): Promise<boolean> {
+  return code === (await mintMockCode(provider, state, secret));
+}
