@@ -1,4 +1,4 @@
-import { formatLoad, formatPercent, formatTime } from "../../core/format";
+import { formatPercent, formatTime } from "../../core/format";
 import type { TileEnvelope, TileType } from "./spec";
 
 // Every tile is computed from the athlete's current reconcile generation, as of one local day,
@@ -237,6 +237,215 @@ async function trainingMix(ctx: TileContext): Promise<TileEnvelope> {
   };
 }
 
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+async function dailyMeans(ctx: TileContext, type: string, from: string, to: string): Promise<Map<string, number>> {
+  const { results } = await ctx.db
+    .prepare(
+      `SELECT local_date, avg(value) AS v FROM measurements
+       WHERE athlete_id = ? AND generation = ? AND type = ? AND local_date BETWEEN ? AND ? GROUP BY local_date`,
+    )
+    .bind(ctx.athleteId, ctx.generation, type, from, to)
+    .all<{ local_date: string; v: number }>();
+  return new Map(results.map((r) => [r.local_date, r.v]));
+}
+
+async function recovery(ctx: TileContext, kind: "rhr_3d" | "hrv_3d"): Promise<TileEnvelope> {
+  const type = kind === "rhr_3d" ? "rhr" : "hrv_sdnn";
+  const unit = kind === "rhr_3d" ? "bpm" : "ms";
+  const label = kind === "rhr_3d" ? "resting heart rate" : "heart rate variability (SDNN)";
+  const description = `Average ${label} over the last 3 days, compared with your own normal range: the average ± one standard deviation of the 90 days before them. Days without a reading are skipped, not counted as zero.`;
+  const days = await dailyMeans(ctx, type, addDays(ctx.asOf, -92), ctx.asOf);
+  const pick = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => days.get(addDays(ctx.asOf, -(to - i)))).filter((v): v is number => v != null);
+  const last3 = pick(0, 2);
+  const base = pick(3, 92);
+  if (!last3.length || base.length < 7) return emptyTile(kind, description);
+  const m = mean(base);
+  const sd = Math.sqrt(mean(base.map((x) => (x - m) ** 2)));
+  const value = round1(mean(last3));
+  const low = Math.round(m - sd);
+  const high = Math.round(m + sd);
+  const position = value < low ? "below" : value > high ? "above" : "inside";
+  const extra: Record<string, number> = {};
+  if (kind === "hrv_3d") {
+    const sleep = [...(await dailyMeans(ctx, "sleep_min", addDays(ctx.asOf, -6), ctx.asOf)).values()];
+    if (sleep.length) extra.sleepAvgMin7d = Math.round(mean(sleep));
+  }
+  return {
+    type: kind,
+    value: { value, low, high, position, ...extra },
+    display: `${Math.round(value)} ${unit}`,
+    context: `${position} your 90-day normal (${low}–${high})`,
+    series: Array.from({ length: 14 }, (_, i) => {
+      const date = addDays(ctx.asOf, -(13 - i));
+      const v = days.get(date);
+      return { date, value: v == null ? null : round1(v) };
+    }),
+    calc: calc(description, { query: `${type} measurements, ${addDays(ctx.asOf, -92)}…${ctx.asOf}` }),
+  };
+}
+
+const BENCHMARKS = [
+  { benchmark: "fran", label: "Fran", unit: "s", better: "lower" },
+  { benchmark: "back_squat_5x5", label: "Back squat 5x5", unit: "lb", better: "higher" },
+  { benchmark: "deadlift_1rm", label: "Deadlift 1RM", unit: "lb", better: "higher" },
+  { benchmark: "row_2k", label: "2k row", unit: "s", better: "lower" },
+] as const;
+
+async function recordBook(ctx: TileContext): Promise<TileEnvelope> {
+  const description =
+    "Your best result per benchmark at the same scaling, among everything you've imported. Times: lower is better; loads: higher is better.";
+  const { results } = await ctx.db
+    .prepare(
+      `SELECT benchmark, value, local_date, source_record_id FROM results
+       WHERE athlete_id = ? AND generation = ? AND benchmark IS NOT NULL AND local_date <= ? ORDER BY local_date, source_record_id`,
+    )
+    .bind(ctx.athleteId, ctx.generation, ctx.asOf)
+    .all<{ benchmark: string; value: number; local_date: string; source_record_id: number }>();
+  if (!results.length) return emptyTile("record_book", description);
+  const since = await ctx.db
+    .prepare("SELECT min(local_date) AS d FROM sessions WHERE athlete_id = ? AND generation = ?")
+    .bind(ctx.athleteId, ctx.generation)
+    .first<{ d: string }>();
+  const bestIds: number[] = [];
+  const rows = BENCHMARKS.flatMap((b) => {
+    const series = results.filter((r) => r.benchmark === b.benchmark);
+    if (!series.length) return [];
+    const best = series.reduce((x, y) => (b.better === "lower" ? (y.value < x.value ? y : x) : y.value > x.value ? y : x));
+    bestIds.push(best.source_record_id);
+    const latest = series.at(-1)!;
+    return [
+      {
+        benchmark: b.benchmark,
+        label: b.label,
+        unit: b.unit,
+        best: best.value,
+        bestDate: best.local_date,
+        latest: latest.value,
+        latestDate: latest.local_date,
+        attempts: series.length,
+        series: series.map((r) => ({ date: r.local_date, value: r.value })),
+      },
+    ];
+  });
+  return {
+    type: "record_book",
+    value: rows,
+    display: `${rows.length} benchmark${rows.length === 1 ? "" : "s"}`,
+    context: `best in your history since ${since?.d ?? rows[0].series[0].date}`,
+    calc: calc(description, { sourceRecordIds: bestIds }),
+  };
+}
+
+async function heatmap(ctx: TileContext): Promise<TileEnvelope> {
+  const description =
+    "Workouts per day for the last 52 weeks. Days with no data from any source are outlined, so a gap in your logs never looks like a rest day.";
+  if (!(await hasSessions(ctx))) return emptyTile("heatmap_52w", description);
+  const from = addDays(ctx.asOf, -363);
+  const year = ctx.asOf.slice(0, 4);
+  const [sessions, data, yearSessions, lateCancels] = await Promise.all([
+    ctx.db
+      .prepare("SELECT local_date, count(*) AS n FROM sessions WHERE athlete_id = ? AND generation = ? AND local_date BETWEEN ? AND ? GROUP BY local_date")
+      .bind(ctx.athleteId, ctx.generation, from, ctx.asOf)
+      .all<{ local_date: string; n: number }>(),
+    ctx.db
+      .prepare("SELECT DISTINCT local_date FROM source_records WHERE athlete_id = ? AND local_date BETWEEN ? AND ?")
+      .bind(ctx.athleteId, from, ctx.asOf)
+      .all<{ local_date: string }>(),
+    ctx.db
+      .prepare("SELECT count(*) AS n FROM sessions WHERE athlete_id = ? AND generation = ? AND local_date BETWEEN ? AND ?")
+      .bind(ctx.athleteId, ctx.generation, `${year}-01-01`, ctx.asOf)
+      .first<{ n: number }>(),
+    ctx.db
+      .prepare(
+        `SELECT count(*) AS n FROM source_records WHERE athlete_id = ? AND kind = 'visit' AND local_date BETWEEN ? AND ?
+         AND json_extract(payload, '$.LateCancelled') = 1`,
+      )
+      .bind(ctx.athleteId, `${year}-01-01`, ctx.asOf)
+      .first<{ n: number }>(),
+  ]);
+  const counts = new Map(sessions.results.map((r) => [r.local_date, r.n]));
+  const withData = new Set(data.results.map((r) => r.local_date));
+  const value = Array.from({ length: 364 }, (_, i) => {
+    const date = addDays(from, i);
+    return { date, sessions: counts.get(date) ?? 0, hasData: withData.has(date) };
+  });
+  return {
+    type: "heatmap_52w",
+    value,
+    display: `${value.reduce((a, d) => a + d.sessions, 0)} sessions in 52 weeks`,
+    context: `${yearSessions?.n ?? 0} sessions this year · ${lateCancels?.n ?? 0} late cancels`,
+    calc: calc(description, { query: `sessions and source records, ${from}…${ctx.asOf}` }),
+  };
+}
+
+export interface ReviewItem {
+  sessionKey: string;
+  localDate: string;
+  kind: "merge_split" | "pick" | "confirm";
+  summary: string;
+}
+
+const FIELD_LABEL: Record<string, string> = { distance_m: "distance", duration_s: "duration" };
+
+/** What still needs the athlete: split watch workouts, rule-resolved conflicts, and late logs. */
+export async function reviewItems(db: D1Database, athleteId: string, generation: string): Promise<ReviewItem[]> {
+  const [split, conflicts, late] = await Promise.all([
+    db
+      .prepare("SELECT session_key, local_date FROM sessions WHERE athlete_id = ? AND generation = ? AND status = 'review_required'")
+      .bind(athleteId, generation)
+      .all<{ session_key: string; local_date: string }>(),
+    db
+      .prepare(
+        `SELECT s.session_key, s.local_date, c.field, c.values_json FROM conflicts c JOIN sessions s ON s.id = c.session_id
+         WHERE c.athlete_id = ? AND c.generation = ? AND c.resolved_by = 'rule' ORDER BY c.field`,
+      )
+      .bind(athleteId, generation)
+      .all<{ session_key: string; local_date: string; field: string; values_json: string }>(),
+    db
+      .prepare(
+        `SELECT session_key, local_date FROM sessions WHERE athlete_id = ? AND generation = ? AND status <> 'confirmed'
+         AND EXISTS (SELECT 1 FROM json_each(flags) WHERE value = 'logged_hours_later')`,
+      )
+      .bind(athleteId, generation)
+      .all<{ session_key: string; local_date: string }>(),
+  ]);
+  const items: ReviewItem[] = [
+    ...split.results.map((s) => ({ sessionKey: s.session_key, localDate: s.local_date, kind: "merge_split" as const, summary: "Two watch workouts during one class" })),
+    ...late.results.map((s) => ({ sessionKey: s.session_key, localDate: s.local_date, kind: "confirm" as const, summary: "Result logged hours after the class" })),
+  ];
+  const seen = new Set<string>();
+  for (const c of conflicts.results) {
+    if (seen.has(c.session_key)) continue;
+    seen.add(c.session_key);
+    const v = JSON.parse(c.values_json) as Record<string, number>;
+    const fmt = (n: number) => (c.field === "distance_m" ? `${Math.round(n).toLocaleString("en-US")} m` : formatTime(n));
+    items.push({
+      sessionKey: c.session_key,
+      localDate: c.local_date,
+      kind: "pick",
+      summary: `${FIELD_LABEL[c.field] ?? c.field}: WodUp ${fmt(v.wodup)} vs watch ${fmt(v.apple_health)}`,
+    });
+  }
+  return items.sort((a, b) => a.localDate.localeCompare(b.localDate) || a.kind.localeCompare(b.kind));
+}
+
+async function reviewQueue(ctx: TileContext): Promise<TileEnvelope> {
+  const description =
+    "Workouts the matcher couldn't settle on its own: two watch workouts in one class, a source disagreement, or a result logged long after class. Your decisions are kept across syncs.";
+  if (!(await hasSessions(ctx))) return emptyTile("review_queue", description);
+  const items = await reviewItems(ctx.db, ctx.athleteId, ctx.generation);
+  return {
+    type: "review_queue",
+    value: { count: items.length, items },
+    display: items.length ? `${items.length} to review` : "All clear",
+    context: "",
+    calc: calc(description, { query: "sessions needing review, rule-resolved conflicts, late logs" }),
+  };
+}
+
 function storiesPlaceholder(): TileEnvelope {
   return {
     type: "stories_placeholder",
@@ -257,11 +466,16 @@ export async function computeTile(type: TileType, ctx: TileContext): Promise<Til
       return recentSessions(ctx);
     case "training_mix":
       return trainingMix(ctx);
+    case "rhr_3d":
+    case "hrv_3d":
+      return recovery(ctx, type);
+    case "record_book":
+      return recordBook(ctx);
+    case "heatmap_52w":
+      return heatmap(ctx);
+    case "review_queue":
+      return reviewQueue(ctx);
     case "stories_placeholder":
       return storiesPlaceholder();
-    default:
-      return emptyTile(type, "This tile is computed in the next step of the dashboard build.");
   }
 }
-
-export { formatLoad };

@@ -4,7 +4,7 @@ import { resolveAsOf } from "../../src/worker/dashboard/asOf";
 import { HOME_SPEC } from "../../src/worker/dashboard/spec";
 import { runReconcile } from "../../src/worker/reconcileStore";
 import { authedFetch, createAthlete } from "./helpers";
-import { expectedFixture, insertAllFixtureRecords } from "./seed";
+import { expectedFixture, fixtureAppleRecords, insertAllFixtureRecords } from "./seed";
 
 const TZ = "America/Los_Angeles";
 const HOME_ORDER = HOME_SPEC.tiles.map((t) => t.type);
@@ -114,5 +114,86 @@ describe("dashboard edges", () => {
 
   it("requires a session", async () => {
     expect((await SELF.fetch("http://x/api/dashboards/home")).status).toBe(401);
+  });
+});
+
+
+/** Recomputes a recovery tile from the raw fixture records (independent of the API's SQL). */
+function expectedRecovery(type: "rhr" | "hrv", asOf: string) {
+  const appleType = type === "rhr" ? "HKQuantityTypeIdentifierRestingHeartRate" : "HKQuantityTypeIdentifierHeartRateVariabilitySDNN";
+  const byDate = new Map<string, number[]>();
+  for (const r of fixtureAppleRecords) {
+    const p = r.payload as any;
+    if (r.kind !== "daily_metric" || p.type !== appleType) continue;
+    byDate.set(r.localDate!, [...(byDate.get(r.localDate!) ?? []), Number(p.value)]);
+  }
+  const daily = (d: string) => {
+    const v = byDate.get(d);
+    return v ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const window = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => daily(addDays(asOf, -(to - i)))).filter((v): v is number => v != null);
+  const last3 = window(0, 2);
+  const base = window(3, 92);
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const m = mean(base);
+  const sd = Math.sqrt(mean(base.map((x) => (x - m) ** 2)));
+  const value = Math.round(mean(last3) * 10) / 10;
+  const low = Math.round(m - sd);
+  const high = Math.round(m + sd);
+  return { value, low, high, position: value < low ? "below" : value > high ? "above" : "inside" };
+}
+
+describe("records, recovery, heatmap, review", () => {
+  beforeEach(seeded);
+  const tileAsOf = async (type: string, asOf: string) =>
+    (await authedFetch(`/api/tiles/${type}?asOf=${asOf}`, {}, cookie)).json<any>();
+
+  it("record book scopes bests to the athlete's history", async () => {
+    const t = (await dash()).tiles.record_book;
+    const row = (b: string) => t.value.find((r: any) => r.benchmark === b);
+    expect(row("fran")).toMatchObject({ best: 261, bestDate: "2026-10-20", attempts: 9, unit: "s" });
+    expect(row("deadlift_1rm")).toMatchObject({ best: 385, bestDate: "2026-10-22", unit: "lb" });
+    expect(row("back_squat_5x5")).toMatchObject({ best: 245 });
+    expect(row("row_2k")).toMatchObject({ best: 448, bestDate: "2026-04-16", latest: 455 });
+    expect(t.context).toBe("best in your history since 2024-10-28");
+  });
+
+  it("best results link to their source records", async () => {
+    expect((await dash()).tiles.record_book.calc.inputs.sourceRecordIds).toHaveLength(4);
+  });
+
+  it("recovery tiles compare to the athlete's own normal", async () => {
+    const d = await dash();
+    expect(d.tiles.rhr_3d.value).toMatchObject(expectedRecovery("rhr", "2026-10-25"));
+    expect(d.tiles.hrv_3d.value).toMatchObject(expectedRecovery("hrv", "2026-10-25"));
+    expect(d.tiles.rhr_3d.context).toMatch(/90-day normal \(\d+–\d+\)/);
+    expect(d.tiles.hrv_3d.value.sleepAvgMin7d).toBeGreaterThan(300);
+    expect(d.tiles.rhr_3d.series).toHaveLength(14);
+  });
+
+  it("the heatmap marks data gaps, not zeros", async () => {
+    const t = await tileAsOf("heatmap_52w", "2025-10-25");
+    expect(t.value).toHaveLength(364);
+    expect(t.value.find((d: any) => d.date === "2025-06-20")).toEqual({ date: "2025-06-20", sessions: 0, hasData: false });
+    expect(t.value.find((d: any) => d.date === "2025-10-20").hasData).toBe(true);
+    expect(t.context).toMatch(/^\d+ sessions this year · \d+ late cancels$/);
+  });
+
+  it("the review queue lists the split, the conflict, and the late log", async () => {
+    const t = (await dash()).tiles.review_queue;
+    expect(t.value.items.map((i: any) => [i.localDate, i.kind])).toEqual([
+      ["2026-10-02", "confirm"],
+      ["2026-10-17", "merge_split"],
+      ["2026-10-18", "pick"],
+    ]);
+    expect(t.value.count).toBe(3);
+  });
+
+  it("serves the home dashboard in under 300 ms", async () => {
+    await dash();
+    const t = performance.now();
+    await dash();
+    expect(performance.now() - t).toBeLessThan(300);
   });
 });
