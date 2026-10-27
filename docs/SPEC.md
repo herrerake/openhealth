@@ -216,6 +216,13 @@ CREATE INDEX ix_meas_type ON measurements(athlete_id, type, local_date);
 
 `athlete_id` is on every table from day one. The demo has one athlete; multi-athlete later needs no migration.
 
+**As built (Phase A, migrations 0001–0002):**
+- `source_records` adds `payload_hash` and `updated_at`.
+- `sync_runs` rows are per provider per run (`run_id`).
+- `sessions` carries a stable `session_key` (what decisions and the UI reference).
+- `oauth_states` holds single-use sign-in state.
+- Reconciliation writes a new `generation` of sessions and derived rows. One atomic batch then switches `reconcile_generations.generation` and deletes older generations, so readers query the current generation only.
+
 ## 6. Sync and reconcile (A3, H2)
 
 ### 6.1 Natural keys and idempotency
@@ -228,7 +235,7 @@ CREATE INDEX ix_meas_type ON measurements(athlete_id, type, local_date);
 | Apple daily metric | `daily:<type>\|<sourceName>\|<startDate>` |
 | Apple HR aggregate | `hr:<workout natural key>` |
 
-- Inserts use `ON CONFLICT DO NOTHING`. Re-syncing or re-uploading adds nothing, and `sync_runs.duplicates` records the count.
+- Inserts are idempotent. An identical record counts as a duplicate. A record whose payload changed upstream, under the same natural key, is updated in place and counted as updated. Within one batch the last version of a key wins.
 - D1 writes go in `batch()` chunks of ≤ 500 statements.
 
 ### 6.2 Sync run (AthleteAgent)
