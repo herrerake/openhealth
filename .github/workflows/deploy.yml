@@ -44,6 +44,7 @@ jobs:
         run: npx wrangler d1 migrations apply openhealth --remote
       - name: Seed demo provider fixtures
         run: npm run seed:mock -- --remote
+      - run: npm run build:web
       - name: Deploy
         run: npx wrangler deploy --message "${{ github.sha }}"
       - name: Probe production

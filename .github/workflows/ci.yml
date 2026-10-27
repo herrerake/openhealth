@@ -26,6 +26,7 @@ jobs:
       - run: sudo apt-get install -y --no-install-recommends libxml2-utils
       - run: npm ci
       - run: npm run fixtures
+      - run: npm run build:web
       - run: npm run typecheck
       - run: npm test
 
@@ -61,6 +62,7 @@ jobs:
           for key in wodup/training_sessions.json mindbody/client_visits.json; do
             npx wrangler r2 object put "openhealth-raw-preview/mock/$key" --file "fixtures/data/$key" --remote
           done
+      - run: npm run build:web
       - name: Deploy Preview
         id: deploy
         run: |
