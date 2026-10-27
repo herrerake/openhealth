@@ -6,7 +6,12 @@ const daily = (i: number): SourceRecordInput => ({
   source: "apple_health",
   kind: "daily_metric",
   naturalKey: `daily:HKQuantityTypeIdentifierRestingHeartRate|Watch|2026-10-${String(i).padStart(2, "0")} 00:00:00 -0700`,
-  payload: { type: "HKQuantityTypeIdentifierRestingHeartRate", value: 55, startDate: "", endDate: "" },
+  payload: {
+    type: "HKQuantityTypeIdentifierRestingHeartRate",
+    value: 55,
+    startDate: `2026-10-${String(i).padStart(2, "0")} 00:00:00 -0700`,
+    endDate: `2026-10-${String(i).padStart(2, "0")} 23:59:00 -0700`,
+  },
   startUtc: `2026-10-${String(i).padStart(2, "0")}T07:00:00Z`,
   endUtc: null,
   localDate: `2026-10-${String(i).padStart(2, "0")}`,
@@ -35,6 +40,15 @@ describe("Apple Health batch upload", () => {
   it("rejects records from another source", async () => {
     const r = await post([{ ...daily(1), source: "wodup" }]);
     expect(r.status).toBe(400);
+  });
+
+  it("rejects a malformed record and says which one", async () => {
+    const bad = [daily(1), { ...daily(2), payload: { type: "HKQuantityTypeIdentifierRestingHeartRate", value: 55 } }];
+    const r = await post(bad as SourceRecordInput[]);
+    expect(r.status).toBe(400);
+    expect(await r.json()).toMatchObject({ error: "invalid_record", index: 1 });
+    const w = await post([{ ...daily(3), kind: "workout", payload: null }]);
+    expect(w.status).toBe(400);
   });
 
   it("rejects an oversized batch", async () => {

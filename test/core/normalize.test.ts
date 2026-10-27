@@ -131,6 +131,15 @@ describe("Apple Health records", () => {
   });
 });
 
+describe("malformed records", () => {
+  it("yield nothing instead of throwing", () => {
+    const base = { id: 1, naturalKey: "x", startUtc: null, endUtc: null, localDate: null, tz: null };
+    expect(normalize({ ...base, source: "apple_health", kind: "daily_metric", payload: { type: "HKQuantityTypeIdentifierRestingHeartRate", value: 1 } })).toEqual({ results: [], measurements: [], notes: [] });
+    expect(normalize({ ...base, source: "apple_health", kind: "workout", payload: null })).toEqual({ results: [], measurements: [], notes: [] });
+    expect(normalize({ ...base, source: "wodup", kind: "result", payload: null })).toEqual({ results: [], measurements: [], notes: [] });
+  });
+});
+
 describe("Mindbody visits", () => {
   it("yield nothing", () => {
     const visit: StoredSourceRecord = { id: 1, source: "mindbody", kind: "visit", naturalKey: "visit:1", payload: {}, startUtc: null, endUtc: null, localDate: "2026-10-18", tz: null };

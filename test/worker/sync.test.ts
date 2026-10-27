@@ -127,6 +127,14 @@ describe("sync runs", () => {
     expect(s.providers.oura).toMatchObject({ status: "done", label: "No data in demo" });
   });
 
+  it("an Apple-only athlete can sync and gets sessions", async () => {
+    await uploadAppleFixture();
+    const s = await syncOnce();
+    expect(s.status).toBe("done");
+    expect(s.providers).toEqual({});
+    expect(s.summary!.workouts).toBeGreaterThan(0);
+  });
+
   it("rejects sync for an unknown provider", async () => {
     await currentCookie();
     const r = await authedFetch("/api/sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ providers: ["strava"] }) });

@@ -185,10 +185,16 @@ function appleDaily(rec: StoredSourceRecord): Normalized {
   return out;
 }
 
+/** A record whose payload can't be read yields nothing rather than failing the athlete's whole rebuild. */
 export function normalize(rec: StoredSourceRecord): Normalized {
-  if (rec.source === "wodup" && rec.kind === "result") return wodupResult(rec);
-  if (rec.source === "apple_health" && rec.kind === "workout") return appleWorkout(rec);
-  if (rec.kind === "hr_aggregate") return hrAggregate(rec);
-  if (rec.kind === "daily_metric") return appleDaily(rec);
+  if (!rec.payload || typeof rec.payload !== "object") return empty();
+  try {
+    if (rec.source === "wodup" && rec.kind === "result") return wodupResult(rec);
+    if (rec.source === "apple_health" && rec.kind === "workout") return appleWorkout(rec);
+    if (rec.kind === "hr_aggregate") return hrAggregate(rec);
+    if (rec.kind === "daily_metric") return appleDaily(rec);
+  } catch {
+    return empty();
+  }
   return empty();
 }

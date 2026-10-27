@@ -137,6 +137,16 @@ describe("reconcile", () => {
     expect(reconcile({ records: [...records].reverse(), decisions: [], siteTz: TZ })).toEqual(r);
   });
 
+  it("skips malformed records instead of failing", () => {
+    const broken: StoredSourceRecord[] = [
+      { id: 999_001, source: "apple_health", kind: "workout", naturalKey: "workout:x", payload: null, startUtc: null, endUtc: null, localDate: null, tz: null },
+      { id: 999_002, source: "wodup", kind: "result", naturalKey: "result:x", payload: null, startUtc: null, endUtc: null, localDate: null, tz: null },
+      { id: 999_003, source: "mindbody", kind: "visit", naturalKey: "visit:x", payload: null, startUtc: null, endUtc: null, localDate: null, tz: null },
+    ];
+    const out = reconcile({ records: [...records, ...broken], decisions: [], siteTz: TZ });
+    expect(out.sessions).toHaveLength(r.sessions.length);
+  });
+
   it("reconciles two years in under 5 s", () => {
     expect(ms).toBeLessThan(5000);
   });

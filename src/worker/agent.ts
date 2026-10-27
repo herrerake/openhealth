@@ -67,7 +67,8 @@ export class AthleteAgent extends Agent<Env, SyncState> {
 
     const runId = crypto.randomUUID();
     const now = new Date().toISOString();
-    await this.env.DB.batch(
+    // With no API providers (e.g. Apple Health only) there's nothing to fetch, but reconcile still runs.
+    if (chosen.length) await this.env.DB.batch(
       chosen.map((p) =>
         this.env.DB.prepare("INSERT INTO sync_runs (id, run_id, athlete_id, provider, started_at, status) VALUES (?, ?, ?, ?, ?, 'running')").bind(
           `${runId}:${p}`,

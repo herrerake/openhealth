@@ -78,8 +78,19 @@ function resultCategory(result: any): SessionCategory {
 const DISTANCE_TO_M: Record<string, number> = { meters: 1, km: 1000, miles: 1609.344, yards: 0.9144, feet: 0.3048 };
 const DURATION_TO_S: Record<string, number> = { seconds: 1, minutes: 60 };
 
+/** Records reconcile can't place (no payload, no times) are left out rather than failing the run. */
+function usable(r: StoredSourceRecord): boolean {
+  const p = r.payload as Record<string, unknown> | null;
+  if (!p || typeof p !== "object") return false;
+  if (r.kind === "visit" || r.kind === "workout") return !Number.isNaN(ms(r.startUtc)) && !Number.isNaN(ms(r.endUtc)) && !!r.localDate;
+  if (r.kind === "training_session") return typeof p.id === "string" && Array.isArray(p.resultIds);
+  if (r.kind === "result") return typeof p.sessionId === "string";
+  if (r.kind === "hr_aggregate") return typeof p.workoutKey === "string";
+  return true;
+}
+
 export function reconcile(input: { records: StoredSourceRecord[]; decisions: Decision[]; siteTz: string }): ReconcileResult {
-  const recs = [...input.records].sort((a, b) => a.id - b.id);
+  const recs = input.records.filter(usable).sort((a, b) => a.id - b.id);
   const visits = recs.filter((r) => r.source === "mindbody" && r.kind === "visit");
   const wodupSessions = recs.filter((r) => r.source === "wodup" && r.kind === "training_session");
   const workouts = recs

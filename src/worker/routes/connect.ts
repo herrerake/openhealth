@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { MAX_APPLE_BATCH, isAppleRecord } from "../../connectors/appleHealth";
+import { MAX_APPLE_BATCH, appleRecordError } from "../../connectors/appleHealth";
 import { isProviderId, registry } from "../../connectors/registry";
 import type { SourceRecordInput } from "../../core/types";
 import type { AppEnv } from "../env";
@@ -71,7 +71,10 @@ connect.post("/api/connect/apple_health/batches", requireAthlete, async (c) => {
   const records = body?.records;
   if (!body || typeof body.fileSha256 !== "string" || !Array.isArray(records)) return c.json({ error: "invalid_batch" }, 400);
   if (records.length > MAX_APPLE_BATCH) return c.json({ error: "batch_too_large", max: MAX_APPLE_BATCH }, 413);
-  if (!records.every(isAppleRecord)) return c.json({ error: "not_apple_health_records" }, 400);
+  for (const [index, record] of records.entries()) {
+    const reason = appleRecordError(record);
+    if (reason) return c.json({ error: "invalid_record", index, reason }, 400);
+  }
   const counts = await insertSourceRecords(c.env.DB, c.var.athleteId, `upload:${body.fileSha256}`, records);
   await upsertConnection(c.env.DB, c.var.athleteId, "apple_health", { status: "connected", mode: "file", lastSyncAt: new Date().toISOString() });
   return c.json(counts);
