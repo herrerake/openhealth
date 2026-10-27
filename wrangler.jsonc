@@ -8,7 +8,7 @@
     {
       "binding": "DB",
       "database_name": "openhealth",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "c7607262-f55c-422b-83ba-c5cba2a77fc5",
       "migrations_dir": "src/db/migrations"
     }
   ],

@@ -29,6 +29,18 @@ npm run demo:sync -- --apple ~/Downloads/export.zip    # your own Health export 
 
 A second `demo:sync` reuses the same demo athlete and shows that nothing is duplicated.
 
+## Deploy
+
+Live demo: https://openhealth.herrerake.workers.dev
+
+```bash
+npx wrangler d1 migrations apply openhealth --remote
+npm run seed:mock -- --remote
+npx wrangler deploy
+openssl rand -base64 48 | npx wrangler secret put SESSION_SECRET   # first deploy only
+OPENHEALTH_URL=https://openhealth.herrerake.workers.dev npm run demo:sync
+```
+
 ## Tests
 
 ```bash
