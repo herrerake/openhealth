@@ -16,7 +16,8 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", timezoneId: "America/Los_Angeles" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `npm run build:web && npx wrangler dev --port ${PORT} --persist-to .wrangler/e2e`,
+    // The secret is passed here, not via .dev.vars: Playwright starts the server before globalSetup runs.
+    command: `npm run build:web && npx wrangler dev --port ${PORT} --persist-to .wrangler/e2e --var SESSION_SECRET:e2e-local-secret`,
     cwd: "..",
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: !process.env.CI,

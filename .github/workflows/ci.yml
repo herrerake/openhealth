@@ -90,11 +90,8 @@ jobs:
       - name: Deploy Preview
         id: deploy
         run: |
-          npx wrangler preview --name "$PREVIEW_NAME" --message "${{ github.event.pull_request.head.sha }}" --json > preview.json
-          url=$(node -e 'const j=require("./preview.json"); console.log(j.preview.urls[0])')
-          commit_url=$(node -e 'const j=require("./preview.json"); console.log(j.deployment.urls[0])')
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "commit_url=$commit_url" >> "$GITHUB_OUTPUT"
+          npx wrangler preview --name "$PREVIEW_NAME" --message "${{ github.event.pull_request.head.sha }}" --json > preview.out
+          node scripts/preview-urls.mjs preview.out >> "$GITHUB_OUTPUT"
       - name: Probe Preview
         run: curl --fail --show-error --silent "${{ steps.deploy.outputs.url }}/api/health"
       - name: Comment Preview URL
