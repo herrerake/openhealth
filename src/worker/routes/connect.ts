@@ -1,9 +1,11 @@
 import { Hono } from "hono";
+import { MAX_APPLE_BATCH, isAppleRecord } from "../../connectors/appleHealth";
 import { isProviderId, registry } from "../../connectors/registry";
+import type { SourceRecordInput } from "../../core/types";
 import type { AppEnv } from "../env";
 import { internalFetch, mockBaseUrl } from "../internal";
 import { requireAthlete } from "../session";
-import { upsertConnection } from "../store";
+import { insertSourceRecords, upsertConnection } from "../store";
 
 const STATE_TTL_MS = 10 * 60_000;
 
@@ -62,4 +64,15 @@ connect.delete("/api/connections/:provider", requireAthlete, async (c) => {
   if (!isProviderId(provider)) return c.json({ error: "unknown_provider" }, 404);
   await upsertConnection(c.env.DB, c.var.athleteId, provider, { status: "disconnected", credentials: null });
   return c.json({ ok: true });
+});
+
+connect.post("/api/connect/apple_health/batches", requireAthlete, async (c) => {
+  const body = await c.req.json<{ fileSha256?: string; records?: SourceRecordInput[] }>().catch(() => null);
+  const records = body?.records;
+  if (!body || typeof body.fileSha256 !== "string" || !Array.isArray(records)) return c.json({ error: "invalid_batch" }, 400);
+  if (records.length > MAX_APPLE_BATCH) return c.json({ error: "batch_too_large", max: MAX_APPLE_BATCH }, 413);
+  if (!records.every(isAppleRecord)) return c.json({ error: "not_apple_health_records" }, 400);
+  const counts = await insertSourceRecords(c.env.DB, c.var.athleteId, `upload:${body.fileSha256}`, records);
+  await upsertConnection(c.env.DB, c.var.athleteId, "apple_health", { status: "connected", mode: "file", lastSyncAt: new Date().toISOString() });
+  return c.json(counts);
 });
