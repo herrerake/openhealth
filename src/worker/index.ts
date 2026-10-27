@@ -34,7 +34,8 @@ const sessionFromCookie = (request: Request) =>
 
 /** An athlete's agent (/agents/athlete-agent/<athleteId>) is reachable only with that athlete's session. */
 async function authorizeAgentRequest(request: Request, env: Env): Promise<Response | null> {
-  const [, prefix, , instance] = new URL(request.url).pathname.split("/");
+  // Split exactly as routeAgentRequest does (empty segments dropped), so "//agents/..." can't slip past.
+  const [prefix, , instance] = new URL(request.url).pathname.split("/").filter(Boolean);
   if (prefix !== "agents") return null;
   const athleteId = await verifySession(sessionFromCookie(request), env.SESSION_SECRET);
   if (!athleteId) return Response.json({ error: "unauthorized" }, { status: 401 });

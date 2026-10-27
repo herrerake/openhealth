@@ -62,6 +62,13 @@ describe("connect flow", () => {
     expect((await authedFetch(url.pathname + url.search, { redirect: "manual" })).status).toBe(400);
   });
 
+  it("the consent page refuses foreign redirect URIs", async () => {
+    for (const uri of ["https://a//evil.com/p", "//evil.com/p", "https://evil.com/api/connect/wodup/callback", "/api/connect/mindbody/callback"]) {
+      const r = await SELF.fetch(`http://x/mock/wodup/oauth/authorize?state=s&auto=1&redirect_uri=${encodeURIComponent(uri)}`, { redirect: "manual" });
+      expect(r.status).toBe(400);
+    }
+  });
+
   it("apple_health has no oauth", async () => {
     expect((await authedFetch("/api/connect/apple_health/start")).status).toBe(400);
   });

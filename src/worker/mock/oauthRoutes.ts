@@ -15,11 +15,12 @@ mockOAuth.get("/mock/:provider/oauth/authorize", async (c) => {
   const state = c.req.query("state");
   const redirectUri = c.req.query("redirect_uri");
   if (!isProviderId(provider) || !state || !redirectUri) return c.text("bad request", 400);
+  // Only our own callback for this provider: never redirect anywhere a caller names.
+  const callback = `/api/connect/${provider}/callback`;
+  if (redirectUri !== callback) return c.text("redirect_uri not allowed", 400);
   if (c.req.query("auto") === "1") {
-    const back = new URL(redirectUri, c.req.url);
-    back.searchParams.set("code", await mintMockCode(provider, state, c.env.SESSION_SECRET));
-    back.searchParams.set("state", state);
-    return c.redirect(back.pathname + back.search, 302);
+    const code = await mintMockCode(provider, state, c.env.SESSION_SECRET);
+    return c.redirect(`${callback}?${new URLSearchParams({ code, state })}`, 302);
   }
   const p = registry[provider];
   return c.html(html`<!doctype html>

@@ -10,6 +10,12 @@ describe("agent access", () => {
     expect((await SELF.fetch(`http://x/agents/athlete-agent/${id}`)).status).toBe(401);
   });
 
+  it("rejects a double-slash path without a session", async () => {
+    const id = await myId();
+    expect((await SELF.fetch(`http://x//agents/athlete-agent/${id}`)).status).toBe(401);
+    expect((await SELF.fetch(`http://x/agents//athlete-agent/${id}`)).status).toBe(401);
+  });
+
   it("rejects another athlete's session", async () => {
     const id = await myId();
     const other = await createAthlete("Someone Else");
