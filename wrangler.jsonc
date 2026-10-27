@@ -20,5 +20,25 @@
   "vars": {
     "SITE_TZ": "America/Los_Angeles",
     "PROVIDER_MODE": "demo"
+  },
+  // Worker Previews (one per pull request). Durable Objects are isolated per Preview automatically;
+  // D1 and R2 point at shared preview resources so previews never touch production data.
+  "previews": {
+    "vars": {
+      "SITE_TZ": "America/Los_Angeles",
+      "PROVIDER_MODE": "demo"
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "openhealth-preview",
+        "database_id": "e243db90-a34b-4d79-b08c-3931bde0893d"
+      }
+    ],
+    "r2_buckets": [{ "binding": "RAW", "bucket_name": "openhealth-raw-preview" }],
+    // Each Preview gets its own AthleteAgent namespace; the binding is declared so env.AthleteAgent exists.
+    "durable_objects": {
+      "bindings": [{ "name": "AthleteAgent", "class_name": "AthleteAgent" }]
+    }
   }
 }
