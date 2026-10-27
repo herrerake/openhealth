@@ -19,7 +19,7 @@ Phases A and B are the current focus. Phase C stays specified so A and B don't p
 ```mermaid
 flowchart LR
   subgraph Browser
-    UI[React app<br/>onboarding + dashboard]
+    UI[Astro pages<br/>onboarding + dashboard<br/>shadcn islands]
     AP[Apple Health parser<br/>Web Worker, streaming]
   end
   subgraph Worker[Cloudflare Worker - Hono]
@@ -58,10 +58,11 @@ flowchart LR
 | Database | D1 (SQLite). Same schema in tests via Miniflare. |
 | Raw storage | R2 (raw provider payloads, uploaded export files) |
 | Long-running work | Agents SDK `Agent` (Durable Object) per athlete |
-| Frontend | React + Vite, built with `@cloudflare/vite-plugin` and served as Workers static assets |
-| Charts | Small hand-rolled SVG components (sparkline, band, heatmap, bar) for a consistent look |
+| Frontend | **Astro, static output** (D-028), built to `web/dist` and served as Workers static assets from the same Worker. `/api/*`, `/agents/*` and `/mock/*` run the Worker first; everything else is a static page. |
+| UI components | Tailwind + **shadcn/ui** tokens throughout. shadcn React components appear only as **islands** where there's interaction: consent sheet, sync progress, review actions, connect buttons. Tiles, the record book and charts are plain Astro components with no client JS. |
+| Charts | Small hand-rolled SVG Astro components (sparkline, band, heatmap, bar), rendered from tile data with no chart library |
 | XML parsing | `saxes`, streaming, in a Web Worker |
-| Tests | Vitest + `@cloudflare/vitest-pool-workers` |
+| Tests | Vitest + `@cloudflare/vitest-plugin`; Playwright for the end-to-end onboarding test |
 | Language | TypeScript throughout. Pure logic lives in `src/core`, with no Workers APIs, so it is testable anywhere. |
 
 ```
@@ -71,9 +72,9 @@ openhealth/
     core/          time, normalize, reconcile, metrics, tiles (pure TS)
     connectors/    types.ts, registry.ts, wodup.ts, mindbody.ts, appleHealth.ts, stubs.ts
     worker/        index.ts (Hono), routes/*, agent.ts (AthleteAgent), mock/* (demo providers)
-    web/           React app: onboarding/*, dashboard/*, tiles/*, review/*, workers/appleParser.ts
+    web/           Astro site: pages/ (onboarding/*, dashboard), components/ (tiles/*.astro), islands/ (shadcn React: ConsentSheet, SyncProgress, ReviewActions, ConnectButton), workers/appleParser.ts
     db/            migrations/*.sql
-  wrangler.jsonc   vite.config.ts   package.json
+  wrangler.jsonc   web/astro.config.mjs   package.json
 ```
 
 ## 3. Synthetic data, two years (H1)
