@@ -232,7 +232,7 @@ CREATE INDEX ix_meas_type ON measurements(athlete_id, type, local_date);
 | Mindbody visit | `visit:<Id>` |
 | WodUp session / result | `session:<id>` / `result:<id>` |
 | Apple workout | `workout:<sourceName>\|<type>\|<startDate>` (D-012) |
-| Apple daily metric | `daily:<type>\|<sourceName>\|<startDate>` |
+| Apple daily metric | `daily:<type>\|<sourceName>\|<startDate>`; category types (sleep) append `\|<value>` |
 | Apple HR aggregate | `hr:<workout natural key>` |
 
 - Inserts are idempotent. An identical record counts as a duplicate. A record whose payload changed upstream, under the same natural key, is updated in place and counted as updated. Within one batch the last version of a key wins.
