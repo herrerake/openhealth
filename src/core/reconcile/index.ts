@@ -199,9 +199,11 @@ export function reconcile(input: { records: StoredSourceRecord[]; decisions: Dec
     const session = buildSession(draft, resultsBySession, hrByWorkout, duplicateOf, workouts, conflicts);
     if (decision && decision.action !== "pick") session.status = "confirmed";
     if (decision?.action === "pick") {
-      const c = conflicts.find((x) => x.sessionKey === key && x.field === decision.payload.field);
-      if (c && typeof decision.payload.source === "string" && decision.payload.source in c.values) {
-        c.chosen = decision.payload.source;
+      // A pick names a source, and optionally one field; without a field it settles every conflict in the session.
+      const { field, source } = decision.payload;
+      for (const c of conflicts) {
+        if (c.sessionKey !== key || (field && c.field !== field) || typeof source !== "string" || !(source in c.values)) continue;
+        c.chosen = source;
         c.resolvedBy = "athlete";
       }
     }

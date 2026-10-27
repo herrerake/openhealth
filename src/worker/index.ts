@@ -6,6 +6,8 @@ import { mockOAuth } from "./mock/oauthRoutes";
 import { mockProviders } from "./mock/providers";
 import { connect } from "./routes/connect";
 import { dashboard } from "./routes/dashboard";
+import { review } from "./routes/review";
+import { sessions } from "./routes/sessions";
 import { sync } from "./routes/sync";
 import { SESSION_COOKIE, verifySession } from "./session";
 import { athletes } from "./routes/athletes";
@@ -23,6 +25,8 @@ app.route("/", mockOAuth);
 app.route("/", connect);
 app.route("/", sync);
 app.route("/", dashboard);
+app.route("/", review);
+app.route("/", sessions);
 
 registerInternalHandler((request, env) => app.fetch(request, env));
 
