@@ -4,7 +4,7 @@ import { currentGeneration, runReconcile } from "../../src/worker/reconcileStore
 import { insertAllFixtureRecords, expectedFixture } from "./seed";
 
 const A = "ath_recon";
-const TZ = "America/Los_Angeles";
+const TZ = "America/Chicago";
 
 beforeEach(async () => {
   await insertAllFixtureRecords(A);
@@ -49,9 +49,9 @@ describe("runReconcile", () => {
     expect((await one<{ status: string }>("SELECT status FROM sessions WHERE athlete_id = ? AND session_key = ?", A, split.session_key)).status).toBe("confirmed");
   });
 
-  it("stores nine Fran results", async () => {
+  it("stores four HYROX finishes", async () => {
     await runReconcile(env.DB, A, TZ);
-    expect((await one<{ n: number }>("SELECT count(*) n FROM results WHERE athlete_id = ? AND benchmark = 'fran'", A)).n).toBe(9);
+    expect((await one<{ n: number }>("SELECT count(*) n FROM results WHERE athlete_id = ? AND benchmark = 'hyrox_total'", A)).n).toBe(4);
   });
 
   it("links every WodUp result to a session", async () => {

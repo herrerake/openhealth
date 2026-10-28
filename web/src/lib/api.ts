@@ -44,6 +44,30 @@ export const startSync = (providers?: string[]) =>
   call<{ runId: string }>("/api/sync", { method: "POST", body: JSON.stringify(providers ? { providers } : {}) });
 export const getDashboard = <T>() => call<T>("/api/dashboards/home");
 export const getSession = <T>(key: string) => call<T>(`/api/sessions/${encodeURIComponent(key)}`);
+
+export interface TimelineBlock {
+  label: string;
+  prescription: string | null;
+  startS: number | null;
+  endS: number | null;
+  source: "official" | "watch" | "estimated";
+  avgHr: number | null;
+  maxHr: number | null;
+}
+export interface Timeline {
+  sessionKey: string;
+  localDate: string;
+  kind: string;
+  title: string;
+  tz: string;
+  startUtc: string;
+  method: "hyrox_splits" | "watch_segments" | "duration_match" | "ai_match" | "none";
+  hr: { stepS: number; points: [number, number][] } | null;
+  blocks: TimelineBlock[];
+  summary: { minutes: number; avgHr: number | null; maxHr: number | null } | null;
+  spoken: string;
+}
+export const getTimeline = (key: string) => call<Timeline>(`/api/sessions/${encodeURIComponent(key)}/timeline`);
 export const postReview = <T>(key: string, body: { action: string; payload?: Record<string, string> }) =>
   call<T>(`/api/review/${encodeURIComponent(key)}`, { method: "POST", body: JSON.stringify(body) });
 export const uploadAppleBatch = (fileSha256: string, records: unknown[]) =>

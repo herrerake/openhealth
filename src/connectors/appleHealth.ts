@@ -48,6 +48,10 @@ export function appleRecordError(r: SourceRecordInput): string | null {
     case "hr_aggregate":
       if (typeof p.workoutKey !== "string" || !num(p.avg) || !num(p.max) || !num(p.samples)) return "hr aggregate needs workoutKey, avg, max, samples";
       return null;
+    case "hr_series":
+      if (typeof p.workoutKey !== "string" || !num(p.stepS) || !Array.isArray(p.points)) return "hr series needs workoutKey, stepS, points";
+      if (!(p.points as unknown[]).every((x) => Array.isArray(x) && x.length === 2 && num(x[0]) && num(x[1]))) return "hr series points must be [seconds, bpm]";
+      return null;
     default:
       return "unsupported kind";
   }

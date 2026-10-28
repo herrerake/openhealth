@@ -4,8 +4,9 @@ import { loadFixture } from "./fixtures";
 import { verifyMockToken } from "./oauth";
 import { paginateMindbody, paginateWodup } from "./paginate";
 
-export const MOCK_WODUP_ATHLETE = "ath_Ax7Rv2Lq";
+export const MOCK_WODUP_ATHLETE = "ath_Hn4Rx8Yk";
 export const MOCK_MINDBODY_CLIENT = "100015482";
+export const MOCK_HYROX_ATHLETE = "hx_walsh_henry";
 
 export const mockProviders = new Hono<AppEnv>();
 
@@ -46,4 +47,13 @@ mockProviders.get("/mock/mindbody/public/v6/client/clientvisits", async (c) => {
     endDate: c.req.query("request.endDate"),
   });
   return c.json(body, status);
+});
+
+// HYROX (no public API; D-036): GET /api/athletes/{id}/results with a bearer token, all results at once.
+mockProviders.get("/mock/hyrox/api/athletes/:id/results", async (c) => {
+  const auth = c.req.header("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!(await verifyMockToken("hyrox", token, c.env.SESSION_SECRET))) return c.json({ error: "unauthorized" }, 401);
+  if (c.req.param("id") !== MOCK_HYROX_ATHLETE) return c.json({ error: "athlete not found" }, 404);
+  return c.json(await loadFixture(c.env, "hyrox/results.json"));
 });

@@ -3,14 +3,14 @@ import type { StoredSourceRecord } from "./types";
 
 // Turns stored source payloads into normalized rows. Units: lbs, meters, seconds, bpm, ms, minutes.
 
-export type Benchmark = "fran" | "row_2k" | "back_squat_5x5" | "deadlift_1rm";
+export type Benchmark = "hyrox_total" | "amrap_40" | "deadlift_4x4" | "run_5k_tt";
 
 export interface ResultRow {
   recordKey: string;
   benchmark: Benchmark | null;
   movement: string;
   scaling: string;
-  metric: "time_s" | "load_lbs" | "distance_m" | "rounds";
+  metric: "time_s" | "load_lbs" | "distance_m" | "rounds" | "reps";
   value: number;
   unit: string;
   localDate: string;
@@ -48,6 +48,8 @@ export interface AppleWorkoutPayload {
   metadata: Record<string, string>;
   statistics: Record<string, { sum?: number; average?: number; minimum?: number; maximum?: number; unit?: string }>;
   totals: { duration_s?: number; active_kcal?: number; distance_m?: number };
+  /** Segment and lap markers the watch recorded during the workout. */
+  segments?: { type: "segment" | "lap"; startUtc: string; seconds: number }[];
 }
 
 /** Payload of an Apple `daily_metric` record (resting HR, HRV, sleep). */
@@ -68,6 +70,14 @@ export interface HrAggregatePayload {
   samples: number;
   gapsOver5Min: number;
   fileSha256: string;
+}
+
+/** Payload of an `hr_series` record: mean heart rate per `stepS` seconds from the workout start. */
+export interface HrSeriesPayload {
+  workoutKey: string;
+  stepS: number;
+  /** [seconds from workout start, bpm]; buckets without samples are left out, not zeroed. */
+  points: [number, number][];
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -100,25 +110,15 @@ function wodupResult(rec: StoredSourceRecord): Normalized {
   switch (r.type) {
     case "FranStyleResult":
     case "ForTimeResult": {
-      if (typeof r.details?.total === "number") {
-        const isFran = r.type === "FranStyleResult" && r.prescribed_workout?.name === "Fran" && r.scaling === "rx";
-        out.results.push({ ...base, benchmark: isFran ? "fran" : null, metric: "time_s", value: r.details.total, unit: "s" });
-      }
+      if (typeof r.details?.total === "number") out.results.push({ ...base, benchmark: null, metric: "time_s", value: r.details.total, unit: "s" });
       break;
     }
     case "StrengthResult": {
       const loads = sets.filter((s) => typeof s.load === "number");
       if (!loads.length) break;
-      const singles = loads.filter((s) => Number(s.reps) === 1);
-      const fives = sets.length >= 5 && sets.every((s) => Number(s.reps) === 5);
-      let benchmark: Benchmark | null = null;
-      let pool = loads;
-      if (movement === "Back Squat" && fives) benchmark = "back_squat_5x5";
-      if (movement === "Deadlift" && singles.length) {
-        benchmark = "deadlift_1rm";
-        pool = singles;
-      }
-      const value = Math.max(...pool.map((s) => toLbs(s.load, s.load_unit)));
+      const fours = sets.length === 4 && sets.every((s) => Number(s.reps) === 4);
+      const benchmark: Benchmark | null = movement === "Deadlift" && fours ? "deadlift_4x4" : null;
+      const value = Math.max(...loads.map((s) => toLbs(s.load, s.load_unit)));
       out.results.push({ ...base, benchmark, metric: "load_lbs", value, unit: "lbs" });
       break;
     }
@@ -128,21 +128,51 @@ function wodupResult(rec: StoredSourceRecord): Normalized {
       const distance = typeof s.distance === "number" ? toMeters(s.distance, s.distance_unit) : null;
       const duration = typeof s.duration === "number" ? toSeconds(s.duration, s.duration_unit) : null;
       if (duration != null) {
-        const isRow2k = movement === "Row" && distance === 2000;
-        out.results.push({ ...base, benchmark: isRow2k ? "row_2k" : null, metric: "time_s", value: duration, unit: "s" });
+        const isTimeTrial = movement === "Run" && distance === 5000 && /time trial/i.test(r.prescribed_workout?.name ?? "");
+        out.results.push({ ...base, benchmark: isTimeTrial ? "run_5k_tt" : null, metric: "time_s", value: duration, unit: "s" });
       } else if (distance != null) {
         out.results.push({ ...base, benchmark: null, metric: "distance_m", value: distance, unit: "m" });
       }
       break;
     }
+    case "CardioIntervalsResult": {
+      const durations = sets.filter((s) => typeof s.duration === "number").map((s) => toSeconds(s.duration, s.duration_unit));
+      if (durations.length) {
+        const label = r.prescribed_workout?.name ?? movement;
+        out.results.push({ ...base, movement: label, benchmark: null, metric: "time_s", value: round1(durations.reduce((a, b) => a + b, 0) / durations.length), unit: "s/rep" });
+      }
+      break;
+    }
     case "AmrapResult": {
       if (typeof r.details?.rounds === "number") {
-        out.results.push({ ...base, benchmark: null, metric: "rounds", value: r.details.rounds, unit: "rounds" });
+        // Rounds plus the share of the next round's movements finished: 5 rounds + 2 of 5 movements = 5.4.
+        const perRound = r.prescribed_workout?.details?.movements?.length || r.movements?.length || 1;
+        const value = round1(r.details.rounds + (r.details.partial_index ?? 0) / perRound);
+        const isBenchmark = r.prescribed_workout?.details?.duration === 40 && perRound === 5;
+        out.results.push({ ...base, movement: r.prescribed_workout?.name ?? movement, benchmark: isBenchmark ? "amrap_40" : null, metric: "rounds", value, unit: "rounds" });
+      }
+      break;
+    }
+    case "GenericResult": {
+      if (typeof r.details?.reps === "number") {
+        out.results.push({ ...base, movement: r.prescribed_workout?.name ?? movement, benchmark: null, metric: "reps", value: r.details.reps, unit: "reps" });
       }
       break;
     }
   }
   if (typeof r.notes === "string" && r.notes.trim()) out.notes.push({ recordKey: rec.naturalKey, localDate, text: r.notes });
+  return out;
+}
+
+/** A HYROX result: the official finish time is the benchmark (splits stay in the payload for the timeline). */
+function hyroxResult(rec: StoredSourceRecord): Normalized {
+  const r = rec.payload as any;
+  const out = empty();
+  const [h, m, s] = String(r.overall?.time ?? "").split(":").map(Number);
+  const total = h * 3600 + m * 60 + s;
+  if (Number.isFinite(total) && total > 0) {
+    out.results.push({ recordKey: rec.naturalKey, benchmark: "hyrox_total", movement: `HYROX ${r.event?.name ?? ""}`.trim(), scaling: r.division ?? "open", metric: "time_s", value: total, unit: "s", localDate: rec.localDate ?? "" });
+  }
   return out;
 }
 
@@ -191,6 +221,7 @@ export function normalize(rec: StoredSourceRecord): Normalized {
   try {
     if (rec.source === "wodup" && rec.kind === "result") return wodupResult(rec);
     if (rec.source === "apple_health" && rec.kind === "workout") return appleWorkout(rec);
+    if (rec.source === "hyrox" && rec.kind === "race_result") return hyroxResult(rec);
     if (rec.kind === "hr_aggregate") return hrAggregate(rec);
     if (rec.kind === "daily_metric") return appleDaily(rec);
   } catch {

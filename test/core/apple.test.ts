@@ -35,7 +35,7 @@ let parseMs: number;
 
 /** Average and max of raw HR samples inside the watch workout starting on `date` (computed from the XML text). */
 function directHrStats(date: string) {
-  const w = [...xml.matchAll(/<Workout [^>]*sourceName="Alex’s Apple Watch"[^>]*startDate="([^"]+)" endDate="([^"]+)"/g)].find((m) =>
+  const w = [...xml.matchAll(/<Workout [^>]*sourceName="Henry’s Apple Watch"[^>]*startDate="([^"]+)" endDate="([^"]+)"/g)].find((m) =>
     m[1].startsWith(date),
   )!;
   const toMs = (s: string) => {
@@ -75,6 +75,30 @@ describe("Apple Health export parser", () => {
 
   it("never emits raw heart-rate samples", () => {
     expect(recs.some((r) => (r.payload as any).type === "HKQuantityTypeIdentifierHeartRate")).toBe(false);
+  });
+
+  it("emits a 15-second heart-rate series per workout, matching its aggregate", () => {
+    const series = recs.find((r) => r.kind === "hr_series" && r.localDate === "2026-10-19")!;
+    const p = series.payload as any;
+    expect(p.stepS).toBe(15);
+    expect(p.points.length).toBeGreaterThan(200);
+    expect(p.points.every(([s]: number[]) => s % 15 === 0)).toBe(true);
+    const agg = recs.find((r) => r.kind === "hr_aggregate" && r.naturalKey === `hr:${p.workoutKey}`)!;
+    expect(Math.max(...p.points.map(([, bpm]: number[]) => bpm))).toBeLessThanOrEqual((agg.payload as any).max);
+  });
+
+  it("leaves the heart-rate gap empty in the series, not zero", () => {
+    const p = recs.find((r) => r.kind === "hr_series" && r.localDate === "2026-10-12")!.payload as any;
+    const offsets = p.points.map(([s]: number[]) => s);
+    expect(offsets.some((s: number, i: number) => i > 0 && s - offsets[i - 1] > 5 * 60)).toBe(true);
+    expect(p.points.every(([, bpm]: number[]) => bpm > 0)).toBe(true);
+  });
+
+  it("reads the watch's segment markers on track days", () => {
+    const w = recs.find((r) => r.kind === "workout" && r.localDate === "2026-09-29" && r.naturalKey.includes("Running"))!;
+    const segments = (w.payload as any).segments;
+    expect(segments.length).toBeGreaterThan(5);
+    expect(segments[0]).toMatchObject({ type: "segment", startUtc: w.startUtc });
   });
 
   it("emits daily resting HR, HRV and sleep records", () => {

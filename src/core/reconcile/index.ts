@@ -13,8 +13,8 @@ const WODUP_TO_APPLE_MS = 90 * MIN;
 const LOGGED_LATE_MS = 6 * 60 * MIN;
 const CONFLICT_TOLERANCE = 0.01;
 
-export type SessionKind = "class" | "open_gym" | "run" | "other";
-export type SessionCategory = "strength" | "metcon" | "run" | "row" | "mixed";
+export type SessionKind = "class" | "open_gym" | "run" | "race" | "other";
+export type SessionCategory = "strength" | "metcon" | "run" | "row" | "race" | "mixed";
 export type SourceRole = "anchor" | "supporting" | "duplicate";
 
 export interface SessionOut {
@@ -66,9 +66,12 @@ const APPLE_CATEGORY: Record<string, SessionCategory> = {
   HKWorkoutActivityTypeCrossTraining: "metcon",
 };
 
+// Warm-ups and cool-downs don't say what a session was; the first scored block does.
+const isWarmUpOrCoolDown = (result: any) => result.type === "WarmUpResult" || /^cool ?down$/i.test(result.prescribed_workout?.name ?? "");
+
 function resultCategory(result: any): SessionCategory {
   if (result.type === "StrengthResult") return "strength";
-  if (result.type === "CardioResult") {
+  if (result.type === "CardioResult" || result.type === "CardioIntervalsResult") {
     const name = result.movements?.[0]?.name;
     return name === "Row" ? "row" : name === "Run" ? "run" : "mixed";
   }
@@ -82,7 +85,7 @@ const DURATION_TO_S: Record<string, number> = { seconds: 1, minutes: 60 };
 function usable(r: StoredSourceRecord): boolean {
   const p = r.payload as Record<string, unknown> | null;
   if (!p || typeof p !== "object") return false;
-  if (r.kind === "visit" || r.kind === "workout") return !Number.isNaN(ms(r.startUtc)) && !Number.isNaN(ms(r.endUtc)) && !!r.localDate;
+  if (r.kind === "visit" || r.kind === "workout" || r.kind === "race_result") return !Number.isNaN(ms(r.startUtc)) && !Number.isNaN(ms(r.endUtc)) && !!r.localDate;
   if (r.kind === "training_session") return typeof p.id === "string" && Array.isArray(p.resultIds);
   if (r.kind === "result") return typeof p.sessionId === "string";
   if (r.kind === "hr_aggregate") return typeof p.workoutKey === "string";
@@ -92,6 +95,7 @@ function usable(r: StoredSourceRecord): boolean {
 export function reconcile(input: { records: StoredSourceRecord[]; decisions: Decision[]; siteTz: string }): ReconcileResult {
   const recs = input.records.filter(usable).sort((a, b) => a.id - b.id);
   const visits = recs.filter((r) => r.source === "mindbody" && r.kind === "visit");
+  const races = recs.filter((r) => r.source === "hyrox" && r.kind === "race_result");
   const wodupSessions = recs.filter((r) => r.source === "wodup" && r.kind === "training_session");
   const workouts = recs
     .filter((r) => r.source === "apple_health" && r.kind === "workout")
@@ -125,9 +129,9 @@ export function reconcile(input: { records: StoredSourceRecord[]; decisions: Dec
   }
   const primaryWorkouts = workouts.filter((w) => !duplicateOf.has(w.id));
 
-  // 2. Anchor on Mindbody check-ins. Late cancels and no-shows create no session.
+  // 2. Anchor on official race results, then on Mindbody check-ins. Late cancels and no-shows create no session.
   const unmatchedVisits: ReconcileResult["unmatchedVisits"] = [];
-  const drafts: Draft[] = [];
+  const drafts: Draft[] = races.map((r) => ({ anchor: r, apple: [], wodup: null, flags: new Set<string>() }));
   for (const v of visits) {
     const p = v.payload as any;
     if (p.LateCancelled) unmatchedVisits.push({ recordId: v.id, reason: "late_cancelled" });
@@ -157,7 +161,10 @@ export function reconcile(input: { records: StoredSourceRecord[]; decisions: Dec
   //    there are several). Otherwise, and for logs without a WOD, attach to the unclaimed Apple
   //    workout that ended within 90 min of the log, on any date (a workout can cross midnight).
   const anchorsByDate = new Map<string, Draft[]>();
-  for (const d of drafts) anchorsByDate.set(d.anchor!.localDate!, [...(anchorsByDate.get(d.anchor!.localDate!) ?? []), d]);
+  for (const d of drafts) {
+    if (d.anchor!.kind !== "visit") continue; // WodUp programming belongs to classes, not races
+    anchorsByDate.set(d.anchor!.localDate!, [...(anchorsByDate.get(d.anchor!.localDate!) ?? []), d]);
+  }
   const draftEnd = (d: Draft) => Math.max(ms(d.anchor!.endUtc), ...d.apple.map((w) => ms(w.endUtc)));
   for (const s of wodupSessions) {
     const occursOn = (s.payload as any).wod?.occurs_on as string | undefined;
@@ -250,7 +257,10 @@ function buildSession(
   const localDate = d.anchor?.localDate ?? d.apple[0]?.localDate ?? d.wodup?.localDate ?? "";
 
   const running = d.apple.some((w) => activity(w) === "HKWorkoutActivityTypeRunning");
-  const kind: SessionKind = d.anchor
+  const race = d.anchor?.kind === "race_result";
+  const kind: SessionKind = race
+    ? "race"
+    : d.anchor
     ? "class"
     : running
       ? "run"
@@ -264,12 +274,17 @@ function buildSession(
     flags.add("ambiguous_split_apple_workout");
   }
   if (d.anchor && d.wodup && d.apple.length === 0) flags.add("missing_apple_workout");
+  // Official timing wins on race day; indoors the watch's GPS distance is a guess (D-037).
+  if (race && d.apple.some((w) => (w.payload as AppleWorkoutPayload).totals?.distance_m != null)) flags.add("watch_distance_unreliable_indoors");
   if (kind === "open_gym") flags.add("no_booking");
   if (startUtc && startUtc.slice(0, 10) !== localDate) flags.add("utc_date_differs_from_local");
 
   const ordered = d.wodup ? ((d.wodup.payload as any).resultIds as string[]) : [];
-  const primary = results.find((r) => (r.payload as any).id === ordered[0]) ?? results[0];
-  const category: SessionCategory = primary
+  const scored = ordered.map((id) => results.find((r) => (r.payload as any).id === id)).filter((r) => r && !isWarmUpOrCoolDown(r.payload));
+  const primary = scored[0] ?? results.find((r) => !isWarmUpOrCoolDown(r.payload)) ?? results[0];
+  const category: SessionCategory = race
+    ? "race"
+    : primary
     ? resultCategory(primary.payload)
     : (APPLE_CATEGORY[d.apple[0] ? activity(d.apple[0]) : ""] ?? "mixed");
 

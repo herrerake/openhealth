@@ -8,7 +8,15 @@ export type ProviderId =
   | "hyrox"
   | "race_results";
 
-export type SourceKind = "visit" | "training_session" | "result" | "workout" | "daily_metric" | "hr_aggregate";
+export type SourceKind =
+  | "visit"
+  | "training_session"
+  | "result"
+  | "workout"
+  | "daily_metric"
+  | "hr_aggregate"
+  | "hr_series"
+  | "race_result";
 
 export interface SourceRecordInput {
   source: ProviderId;

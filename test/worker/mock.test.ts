@@ -6,7 +6,7 @@ import { seedMockFixtures } from "./seed";
 beforeEach(seedMockFixtures);
 
 const basic = (token: string) => `Basic ${btoa(`${token}:`)}`;
-const wodupUrl = (athlete = "ath_Ax7Rv2Lq", q = "limit=100") =>
+const wodupUrl = (athlete = "ath_Hn4Rx8Yk", q = "limit=100") =>
   `http://x/mock/wodup/api/public/athletes/${athlete}/training_sessions?${q}`;
 const mindbodyUrl = (client = "100015482") =>
   `http://x/mock/mindbody/public/v6/client/clientvisits?request.clientId=${client}&request.limit=200&request.offset=0`;

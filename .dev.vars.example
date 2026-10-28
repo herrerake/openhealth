@@ -1,1 +1,3 @@
 SESSION_SECRET=change-me
+# Optional: lets Claude match class blocks to heart rate on the session timeline (D-038).
+# ANTHROPIC_API_KEY=

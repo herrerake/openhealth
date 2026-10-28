@@ -51,8 +51,8 @@ try {
   console.error("apple-health: export.xml is not well-formed", e.stderr?.toString());
 }
 
-// Every Apple timestamp must carry the America/Los_Angeles offset in effect at that instant.
-const laOffset = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", timeZoneName: "longOffset" });
+// Every Apple timestamp must carry the America/Chicago offset in effect at that instant.
+const laOffset = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", timeZoneName: "longOffset" });
 const offsetAt = (ms) => {
   const name = laOffset.formatToParts(new Date(ms)).find((p) => p.type === "timeZoneName").value; // "GMT-07:00"
   return name.replace("GMT", "").replace(":", "");
@@ -65,7 +65,7 @@ for (const [, local, off] of readFileSync(xmlPath, "utf8").matchAll(/Date="(\d{4
 }
 if (badOffsets) {
   failed = true;
-  console.error(`apple-health: ${badOffsets} timestamps carry the wrong UTC offset for America/Los_Angeles`);
+  console.error(`apple-health: ${badOffsets} timestamps carry the wrong UTC offset for America/Chicago`);
 } else {
   console.log("apple-health: every timestamp carries the correct DST offset");
 }

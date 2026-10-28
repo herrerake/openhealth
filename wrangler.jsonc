@@ -25,14 +25,14 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AthleteAgent"] }],
   "vars": {
-    "SITE_TZ": "America/Los_Angeles",
+    "SITE_TZ": "America/Chicago",
     "PROVIDER_MODE": "demo"
   },
   // Worker Previews (one per pull request). Durable Objects are isolated per Preview automatically;
   // D1 and R2 point at shared preview resources so previews never touch production data.
   "previews": {
     "vars": {
-      "SITE_TZ": "America/Los_Angeles",
+      "SITE_TZ": "America/Chicago",
       "PROVIDER_MODE": "demo"
     },
     "d1_databases": [

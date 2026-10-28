@@ -1,4 +1,4 @@
-import { formatPercent, formatTime } from "../../core/format";
+import { formatPercent, formatRounds, formatTime } from "../../core/format";
 import type { TileEnvelope, TileType } from "./spec";
 
 // Every tile is computed from the athlete's current reconcile generation, as of one local day,
@@ -18,7 +18,7 @@ const DAY_MS = 86_400_000;
 const STREAK_THRESHOLD = 4;
 const RECENT_LIMIT = 5;
 const MIX_DAYS = 56;
-const CATEGORIES = ["strength", "metcon", "run", "row", "mixed"] as const;
+const CATEGORIES = ["strength", "metcon", "run", "row", "race", "mixed"] as const;
 
 export const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T12:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
 export function mondayOf(date: string): string {
@@ -124,18 +124,19 @@ interface ResultRow {
 
 export function formatResult(r: Omit<ResultRow, "session_id">): string {
   switch (r.benchmark) {
-    case "fran":
-      return `Fran ${formatTime(r.value)} ${r.scaling}`;
-    case "row_2k":
-      return `2k row ${formatTime(r.value)}`;
-    case "back_squat_5x5":
-      return `Back squat 5x5 @${r.value}`;
-    case "deadlift_1rm":
-      return `Deadlift ${r.value}`;
+    case "hyrox_total":
+      return `${r.movement} ${formatTime(r.value)}`;
+    case "amrap_40":
+      return `40-min AMRAP · ${formatRounds(r.value)}`;
+    case "deadlift_4x4":
+      return `Deadlift 4x4 @${r.value}`;
+    case "run_5k_tt":
+      return `5k time trial ${formatTime(r.value)}`;
   }
   if (r.metric === "load_lbs") return `${r.movement} @${r.value}`;
   if (r.metric === "time_s") return `${r.movement} ${formatTime(r.value)}`;
-  if (r.metric === "rounds") return `${r.movement} · ${r.value} rounds`;
+  if (r.metric === "rounds") return `${r.movement} · ${formatRounds(r.value)}`;
+  if (r.metric === "reps") return `${r.movement} · ${r.value} reps`;
   return `${r.movement} ${Math.round(r.value)} m`;
 }
 
@@ -174,11 +175,13 @@ async function recentSessions(ctx: TileContext): Promise<TileEnvelope> {
   const value = sessions.map((s) => {
     const mine = sources.results.filter((x) => x.session_id === s.id);
     const visit = mine.find((x) => x.kind === "visit");
+    const race = mine.find((x) => x.kind === "race_result");
     const workout = mine.find((x) => x.kind === "workout");
     const activity = workout ? (ACTIVITY_LABEL[JSON.parse(workout.payload).workoutActivityType] ?? "Workout") : "Workout";
     const time = s.start_utc ? localTime(s.start_utc, ctx.tz) : "";
     const title =
-      s.kind === "class" ? `${visit ? JSON.parse(visit.payload).Name : "Class"} ${time}`.trim()
+      s.kind === "race" ? `HYROX ${race ? JSON.parse(race.payload).event?.name ?? "" : ""}`.trim()
+      : s.kind === "class" ? `${visit ? JSON.parse(visit.payload).Name : "Class"} ${time}`.trim()
       : s.kind === "open_gym" ? `Open gym ${time}`.trim()
       : s.kind === "run" ? "Run"
       : activity;
@@ -288,10 +291,10 @@ async function recovery(ctx: TileContext, kind: "rhr_3d" | "hrv_3d"): Promise<Ti
 }
 
 const BENCHMARKS = [
-  { benchmark: "fran", label: "Fran", unit: "s", better: "lower" },
-  { benchmark: "back_squat_5x5", label: "Back squat 5x5", unit: "lb", better: "higher" },
-  { benchmark: "deadlift_1rm", label: "Deadlift 1RM", unit: "lb", better: "higher" },
-  { benchmark: "row_2k", label: "2k row", unit: "s", better: "lower" },
+  { benchmark: "hyrox_total", label: "HYROX finish", unit: "s", better: "lower" },
+  { benchmark: "run_5k_tt", label: "5k time trial", unit: "s", better: "lower" },
+  { benchmark: "amrap_40", label: "40-min AMRAP", unit: "rounds", better: "higher" },
+  { benchmark: "deadlift_4x4", label: "Deadlift 4x4", unit: "lb", better: "higher" },
 ] as const;
 
 async function recordBook(ctx: TileContext): Promise<TileEnvelope> {

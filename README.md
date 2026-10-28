@@ -3,11 +3,13 @@
 ESPN-style coverage for amateur athletes. OpenHealth pulls an athlete's training data from the apps they already use into one owned history, then builds dashboards and data-backed stories on top. See [docs/PRD.md](docs/PRD.md) and [docs/SPEC.md](docs/SPEC.md).
 
 **Phase A, the data infrastructure:**
-- connectors (WodUp, Mindbody, Apple Health, and demo stubs for Garmin, Oura, WHOOP, HYROX and race results);
+- connectors (WodUp, Mindbody, Apple Health, HYROX race results, and demo stubs for Garmin, Oura, WHOOP and other race results);
 - the D1 schema;
 - a streaming Apple Health parser;
 - deterministic reconciliation;
 - sync runs driven by a per-athlete Durable Object agent.
+
+The demo athlete is Hyrox Henry: two years of Club Hybrid classes, track sessions and four HYROX races (see [fixtures/README.md](fixtures/README.md)). Each session opens a heart-rate timeline with its blocks laid over it. Set `ANTHROPIC_API_KEY` in `.dev.vars` to let Claude match class blocks to the heart rate; without it, code matches them by expected duration.
 
 ## Quickstart
 

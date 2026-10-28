@@ -6,7 +6,7 @@ const ROOT = join(import.meta.dirname, "..");
 export const APPLE_FIXTURE = join(ROOT, "fixtures/data/apple-health/export.xml");
 
 /** Welcome form → connect page, then connects each named provider through its consent sheet. */
-export async function onboardAndConnect(page: Page, providers: string[], name = "Alex Rivera"): Promise<void> {
+export async function onboardAndConnect(page: Page, providers: string[], name = "Henry Walsh"): Promise<void> {
   await page.goto("/onboarding");
   await page.getByLabel("Name").fill(name);
   await page.getByRole("button", { name: "Continue" }).click();
