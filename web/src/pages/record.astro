@@ -1,0 +1,8 @@
+---
+import RecordDetail from "../islands/RecordDetail";
+import App from "../layouts/App.astro";
+---
+
+<App title="Record" wide signedIn>
+  <RecordDetail client:only="react" />
+</App>

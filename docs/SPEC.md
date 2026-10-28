@@ -324,6 +324,7 @@ The ⓘ on every tile renders `calc`.
 | `streak` | Consecutive complete weeks with ≥4 sessions, ending last week. The current week is included once it reaches 4. Context: the longest in history. |
 | `rhr_3d` / `hrv_3d` | 3-day rolling mean of the daily values. The normal range is the 90-day mean ± 1 SD, excluding the last 3 days. Context: inside / above / below the range. The HRV tile adds the 7-day sleep average. |
 | `record_book` | Per benchmark (HYROX finish, 5k time trial, 40-min AMRAP in rounds, deadlift 4x4): best (min time / max load), its date, latest, attempt count, a series for the sparkline, and the noise band for timed benchmarks. The header reads "best in your history since <first date>". |
+| `record_book` → detail | Each row links to `/record/?benchmark=…`, backed by `GET /api/records/:benchmark` (D-044): every attempt oldest first with `pr` (better than all before it) and `bestSoFar`, the session key for each, best / latest / first, the change since the first, and a `spoken` line. Unknown benchmark or no attempts as of the day: 404. |
 | `review_queue` | Sessions with `review_required`, unresolved conflicts, and the `logged_hours_later` flag. Each has an action: merge / split / pick / confirm. |
 | `heatmap_52w` | Sessions per local date for the last 52 weeks. Days with **no records from any source** are styled as gaps, distinct from zero-session days that do have watch data. Context: sessions this year, late cancels. |
 | `recent_sessions` | The last 5 sessions: the primary result line, HR avg, active kcal, and source badges. |
@@ -416,6 +417,7 @@ Home `speak`: `week_sessions`, `streak`, `rhr_3d`.
 | GET | `/api/dashboards/:id` | Spec + tile data (`home` by default) |
 | GET | `/api/tiles/:type` | A single tile envelope |
 | GET/POST | `/api/review` · `/api/review/:sessionKey` | Review queue; merge / split / pick (a source, optionally one field) / confirm |
+| GET | `/api/records/:benchmark` | One benchmark's full record: every attempt, the best-so-far progression, session links (D-044) |
 | GET | `/api/sessions/:sessionKey` | Session detail: sources with summaries, results, measurements, notes, conflicts |
 | GET | `/api/sessions/:sessionKey/timeline` | Heart rate with the session's blocks laid over it (§8.2.1) |
 | GET | `/api/sync/state` | Sync state over HTTP (fallback for the agent WebSocket) |

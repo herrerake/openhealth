@@ -168,6 +168,41 @@ describe("records, recovery, heatmap, review", () => {
     expect((await dash()).tiles.record_book.calc.inputs.sourceRecordIds).toHaveLength(4);
   });
 
+  it("a record's detail lists every attempt and the progression of the best", async () => {
+    const r = await (await authedFetch("/api/records/hyrox_total", {}, cookie)).json<any>();
+    expect(r.attempts.map((a: any) => [a.value, a.pr, a.bestSoFar])).toEqual([
+      [5294, false, 5294],
+      [4900, true, 4900],
+      [5095, false, 4900],
+      [4472, true, 4472],
+    ]);
+    expect(r).toMatchObject({ best: { value: 4472, date: "2026-09-19" }, first: { value: 5294 }, change: 822, prCount: 2 });
+    expect(r.attempts.at(-1).title).toBe("HYROX 2026 Dallas");
+    expect(r.spoken).toBe("Your best HYROX finish is 1:14:32 from 4 attempts, 13:42 faster than your first.");
+    expect(r.calc.inputs.sourceRecordIds).toHaveLength(4);
+  });
+
+  it("every attempt links to its session", async () => {
+    const r = await (await authedFetch("/api/records/deadlift_4x4", {}, cookie)).json<any>();
+    const tile = (await dash()).tiles.record_book.value.find((x: any) => x.benchmark === "deadlift_4x4");
+    expect(r.attempts).toHaveLength(tile.attempts);
+    expect(r.best).toMatchObject({ value: tile.best, date: tile.bestDate });
+    expect(r.attempts.every((a: any) => typeof a.sessionKey === "string")).toBe(true);
+    const session = await authedFetch(`/api/sessions/${encodeURIComponent(r.best.sessionKey)}`, {}, cookie);
+    expect(session.status).toBe(200);
+  });
+
+  it("a record is as of the dashboard's day", async () => {
+    const r = await (await authedFetch("/api/records/hyrox_total?asOf=2025-12-31", {}, cookie)).json<any>();
+    expect(r.attempts).toHaveLength(2);
+    expect(r.best.value).toBe(4900);
+  });
+
+  it("an unknown benchmark is not found", async () => {
+    expect((await authedFetch("/api/records/fran", {}, cookie)).status).toBe(404);
+    expect((await authedFetch("/api/records/hyrox_total?asOf=2024-01-01", {}, cookie)).status).toBe(404);
+  });
+
   it("recovery tiles compare to the athlete's own normal", async () => {
     const d = await dash();
     expect(d.tiles.rhr_3d.value).toMatchObject(expectedRecovery("rhr", "2026-10-25"));
