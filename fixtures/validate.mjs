@@ -52,9 +52,9 @@ try {
 }
 
 // Every Apple timestamp must carry the America/Chicago offset in effect at that instant.
-const laOffset = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", timeZoneName: "longOffset" });
+const chicagoOffset = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", timeZoneName: "longOffset" });
 const offsetAt = (ms) => {
-  const name = laOffset.formatToParts(new Date(ms)).find((p) => p.type === "timeZoneName").value; // "GMT-07:00"
+  const name = chicagoOffset.formatToParts(new Date(ms)).find((p) => p.type === "timeZoneName").value; // "GMT-05:00"
   return name.replace("GMT", "").replace(":", "");
 };
 let badOffsets = 0;
