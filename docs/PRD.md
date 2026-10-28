@@ -3,7 +3,7 @@
 Version 2.0 · 2026-10-27 · Status: draft for review
 Supersedes v1.0. v1's data and ownership principles carry forward (§4). Its scope is replaced.
 
-Related: [SPEC](SPEC.md) · [Story Playbook](STORY-PLAYBOOK.md) · [Decisions](DECISIONS.md) · [Fixtures](../fixtures/README.md)
+Related: [Vision](VISION.md) · [SPEC](SPEC.md) · [Story Playbook](STORY-PLAYBOOK.md) · [Decisions](DECISIONS.md) · [Fixtures](../fixtures/README.md)
 
 ## 1. Vision
 

@@ -356,6 +356,51 @@ On the fixtures, the code match puts 84% of class block starts within 2 minutes 
 - It re-runs reconcile for that local date and returns the updated session and tiles.
 - Merge, split, pick and confirm are all reversible from the session detail.
 
+### 8.4 Spoken summaries (proposed, D-032, D-033)
+
+Status: proposed, not built. Every view must be answerable in one spoken sentence (VISION §7), so the tile envelope gains one field and the dashboard response gains one headline.
+
+```ts
+interface TileEnvelope<V> {
+  // ...value, display, context, series, calc as in §8.1
+  spoken: string;              // one sentence, e.g. "Your resting heart rate is 55 bpm, inside your normal range of 54–58."
+}
+
+interface DashboardSpec {
+  // ...as in §8.1
+  speak: TileType[];           // tiles that make up the dashboard headline, in order (2–3)
+}
+
+// GET /api/dashboards/:id adds:
+spoken: string;                // the `speak` tiles' sentences joined, e.g. for "show me my week" in the car
+```
+
+**Rules:**
+
+1. **Code writes it.** Each tile function builds `spoken` from a template, using the same values it returns in `value`, `display` and `context`. No model call.
+2. **One sentence, at most 25 words.** Second person, plain words, no reference to anything visual ("as shown", "the green bar").
+3. **Digits, not words.** `spoken` keeps numbers as digits with units, so it can be checked exactly. The D-016 speller (`speak.ts`) renders it for TTS at the voice surface ("55 bpm" → "fifty-five beats per minute").
+4. **Empty tiles say so.** "No resting heart rate data yet."
+5. **Later, the voice layer quotes, it doesn't compute.** A v1 voice agent may pick which sentences to read and connect them with its own words, but the numbers it speaks come from `spoken` unchanged (PRD §4.1).
+
+**Home dashboard templates:**
+
+| Tile | `spoken` |
+|---|---|
+| `week_sessions` | "You've trained 4 times this week; your typical week is 4.2." |
+| `streak` | "You're on a 6-week streak of 4 or more sessions; your longest is 11." |
+| `rhr_3d` / `hrv_3d` | "Your resting heart rate is 55 bpm, inside your normal range of 54–58." |
+| `record_book` | The most recent best: "Your newest record is HYROX in 1:14:32, on 2026-09-19." |
+| `review_queue` | "3 sessions need your review." / "Nothing needs your review." |
+| `heatmap_52w` | "You've logged 212 sessions this year." |
+| `recent_sessions` | "Your last session was <primary result line>, on <date>." |
+| `training_mix` | "Over the last 8 weeks, 46% of your 1,240 training minutes were metcon." |
+| `stories_placeholder` | "Your first story is still being reported." |
+
+Home `speak`: `week_sessions`, `streak`, `rhr_3d`.
+
+**Tests:** every tile on the fixtures returns a non-empty `spoken` of at most 25 words, and every number in it appears in that tile's `value`, `display`, `context` or `series`.
+
 ## 9. API
 
 | Method | Path | Purpose |
@@ -372,6 +417,7 @@ On the fixtures, the code match puts 84% of class block starts within 2 minutes 
 | GET | `/api/tiles/:type` | A single tile envelope |
 | GET/POST | `/api/review` · `/api/review/:sessionKey` | Review queue; merge / split / pick (a source, optionally one field) / confirm |
 | GET | `/api/sessions/:sessionKey` | Session detail: sources with summaries, results, measurements, notes, conflicts |
+| GET | `/api/sessions/:sessionKey/timeline` | Heart rate with the session's blocks laid over it (§8.2.1) |
 | GET | `/api/sync/state` | Sync state over HTTP (fallback for the agent WebSocket) |
 | — | `/mock/:provider/*` | Demo providers (OAuth + data endpoints); the consent form POSTs |
 
@@ -417,7 +463,6 @@ Full design: [SPEC-STORY-ENGINE.md](SPEC-STORY-ENGINE.md). In summary:
 | Tiles | Each tile equals a hand-computed value on the fixtures; `calc.inputs` resolves to real records |
 | E2E | Onboarding → 3 connections → sync → dashboard renders all tiles (Playwright, against `wrangler dev`) |
 
-| GET | `/api/sessions/:sessionKey/timeline` | Heart rate with the session's blocks laid over it (§8.2.1) |
 ## 13. Open questions
 
 - Remotion licence vs Revideo for Phase C rendering. This depends on who runs the Hack Fair (> 3-person employer).
