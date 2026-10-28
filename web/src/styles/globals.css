@@ -1,28 +1,36 @@
 @import "tailwindcss";
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/bricolage-grotesque";
 
-@custom-variant dark (&:is(.dark *));
+/* The theme is chosen in the header (System/Light/Dark); an inline script in App.astro sets data-theme before paint. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* shadcn/ui tokens (neutral), light and dark. */
+/* shadcn/ui tokens, light and dark. Neutral surfaces with one "volt" brand accent (--brand).
+   --brand fills buttons and bars; --brand-ink is the brand as text or a thin line, darkened in light mode for contrast. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  color-scheme: light;
+  --radius: 0.75rem;
+  --background: oklch(0.982 0.003 100);
+  --foreground: oklch(0.17 0.006 260);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.17 0.006 260);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.17 0.006 260);
+  --primary: oklch(0.18 0.006 260);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --brand: oklch(0.88 0.2 124);
+  --brand-foreground: oklch(0.2 0.04 130);
+  --brand-ink: oklch(0.5 0.14 134);
+  --secondary: oklch(0.955 0.003 100);
+  --secondary-foreground: oklch(0.2 0.006 260);
+  --muted: oklch(0.955 0.003 100);
+  --muted-foreground: oklch(0.5 0.01 260);
+  --accent: oklch(0.955 0.003 100);
+  --accent-foreground: oklch(0.2 0.006 260);
+  --destructive: oklch(0.56 0.22 27);
+  --border: oklch(0.17 0.006 260 / 9%);
+  --input: oklch(0.17 0.006 260 / 13%);
+  --ring: oklch(0.5 0.14 134 / 60%);
   --chart-1: oklch(0.546 0.245 262.881);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -31,30 +39,37 @@
   --warning: oklch(0.828 0.189 84.429);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.13 0.004 260);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.17 0.004 260);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.19 0.004 260);
+  --popover-foreground: oklch(0.97 0 0);
+  --primary: oklch(0.97 0 0);
+  --primary-foreground: oklch(0.16 0.005 260);
+  --brand: oklch(0.91 0.2 124);
+  --brand-foreground: oklch(0.2 0.04 130);
+  --brand-ink: oklch(0.91 0.2 124);
+  --secondary: oklch(0.24 0.004 260);
+  --secondary-foreground: oklch(0.97 0 0);
+  --muted: oklch(0.22 0.004 260);
+  --muted-foreground: oklch(0.7 0.005 260);
+  --accent: oklch(0.24 0.004 260);
+  --accent-foreground: oklch(0.97 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.91 0.2 124 / 70%);
 }
 
 @theme inline {
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Hanken Grotesk Variable", ui-sans-serif, sans-serif;
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-ink: var(--brand-ink);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -91,5 +106,30 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    background: var(--brand);
+    color: var(--brand-foreground);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@utility animate-rise {
+  animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

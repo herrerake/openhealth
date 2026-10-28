@@ -1,12 +1,8 @@
 ---
 import SyncProgress from "../../islands/SyncProgress";
-import App from "../../layouts/App.astro";
+import Onboarding from "../../layouts/Onboarding.astro";
 ---
 
-<App title="Syncing">
-  <p class="text-muted-foreground text-xs font-medium uppercase tracking-wider">4 · Syncing</p>
-  <h1 class="mt-2 text-2xl font-semibold tracking-tight">Building your history…</h1>
-  <div class="mt-6">
-    <SyncProgress client:only="react" />
-  </div>
-</App>
+<Onboarding title="Syncing" step={3} heading="Building your history…" lede="We're pulling in every workout and matching duplicates across your apps.">
+  <SyncProgress client:only="react" />
+</Onboarding>

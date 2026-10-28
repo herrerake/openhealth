@@ -2,7 +2,7 @@
 // Mindbody Public API v6 and Apple Health export: two years of one athlete's
 // training. See fixtures/README.md for the scenario, the edge cases and
 // storylines it plants, and which shapes are verified vs assumed.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -860,7 +860,10 @@ sessions.sort((a, b) => b.results[0].done_at.localeCompare(a.results[0].done_at)
 const write = (path, body) => {
   const full = join(OUT, path);
   mkdirSync(dirname(full), { recursive: true });
-  writeFileSync(full, typeof body === "string" ? body : JSON.stringify(body, null, 2) + "\n");
+  // Write then rename: tests regenerate fixtures while other workers read them, and a rename is atomic.
+  const tmp = `${full}.${process.pid}.tmp`;
+  writeFileSync(tmp, typeof body === "string" ? body : JSON.stringify(body, null, 2) + "\n");
+  renameSync(tmp, full);
 };
 
 write("mindbody/client_visits.json", {

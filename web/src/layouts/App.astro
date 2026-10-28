@@ -1,11 +1,19 @@
 ---
+import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import "../styles/globals.css";
 
 interface Props {
   title: string;
   wide?: boolean;
+  /** Width of the main column; onboarding uses a narrow, centered form column. */
+  narrow?: boolean;
 }
-const { title, wide = false } = Astro.props;
+const { title, wide = false, narrow = false } = Astro.props;
+const THEMES = [
+  { value: "system", label: "System theme", Icon: MonitorIcon },
+  { value: "light", label: "Light theme", Icon: SunIcon },
+  { value: "dark", label: "Dark theme", Icon: MoonIcon },
+];
 ---
 
 <!doctype html>
@@ -13,11 +21,95 @@ const { title, wide = false } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fafaf8" />
     <title>{title} · OpenHealth</title>
+    <script is:inline>
+      // Runs before paint so a saved theme never flashes. "system" follows the OS and keeps following it.
+      (() => {
+        const media = matchMedia("(prefers-color-scheme: dark)");
+        const apply = () => {
+          let choice = "system";
+          try {
+            choice = localStorage.getItem("oh-theme") || "system";
+          } catch {}
+          const theme = choice === "system" ? (media.matches ? "dark" : "light") : choice;
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.dataset.themeChoice = choice;
+          document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0b0c0e" : "#fafaf8");
+        };
+        window.__applyTheme = apply;
+        apply();
+        media.addEventListener("change", apply);
+      })();
+    </script>
   </head>
-  <body class="min-h-dvh">
-    <main class:list={["mx-auto w-full px-4 py-8 sm:px-6", wide ? "max-w-6xl" : "max-w-xl"]}>
+  <body class="flex min-h-dvh flex-col">
+    <header class="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+      <div class:list={["mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-6", wide ? "max-w-6xl" : "max-w-5xl"]}>
+        <a href="/" class="flex items-center gap-2.5 rounded-md focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none">
+          <span class="grid size-7 place-items-center rounded-lg bg-brand text-brand-foreground" aria-hidden="true">
+            <svg viewBox="0 0 24 24" class="size-4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12h4l3-7 4 14 3-7h4" />
+            </svg>
+          </span>
+          <span class="font-display text-[15px] font-semibold tracking-tight">OpenHealth</span>
+        </a>
+        <div class="flex items-center gap-4">
+          <slot name="header" />
+          <div role="radiogroup" aria-label="Theme" class="flex items-center gap-0.5 rounded-full border bg-card p-0.5 shadow-xs" data-theme-switch>
+            {
+              THEMES.map(({ value, label, Icon }) => (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked="false"
+                  aria-label={label}
+                  title={label}
+                  data-value={value}
+                  class="text-muted-foreground hover:text-foreground aria-checked:bg-muted aria-checked:text-foreground grid size-7 place-items-center rounded-full transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  <Icon className="size-3.5" aria-hidden="true" />
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class:list={["mx-auto w-full flex-1 px-4 sm:px-6", wide ? "max-w-6xl py-8" : narrow ? "max-w-[30rem] py-10 sm:py-16" : "max-w-xl py-8"]}>
       <slot />
     </main>
+    <script>
+      const group = document.querySelector<HTMLElement>("[data-theme-switch]")!;
+      const radios = [...group.querySelectorAll<HTMLButtonElement>("[role=radio]")];
+      const sync = () => {
+        const choice = document.documentElement.dataset.themeChoice ?? "system";
+        for (const r of radios) {
+          const on = r.dataset.value === choice;
+          r.setAttribute("aria-checked", String(on));
+          r.tabIndex = on ? 0 : -1;
+        }
+      };
+      const choose = (value: string) => {
+        try {
+          localStorage.setItem("oh-theme", value);
+        } catch {}
+        (window as unknown as { __applyTheme: () => void }).__applyTheme();
+        sync();
+      };
+      radios.forEach((r, i) => {
+        r.addEventListener("click", () => choose(r.dataset.value!));
+        // Radio-group keyboard pattern: arrows move and select.
+        r.addEventListener("keydown", (e) => {
+          const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+          if (!step) return;
+          e.preventDefault();
+          const next = radios[(i + step + radios.length) % radios.length];
+          choose(next.dataset.value!);
+          next.focus();
+        });
+      });
+      sync();
+    </script>
   </body>
 </html>
