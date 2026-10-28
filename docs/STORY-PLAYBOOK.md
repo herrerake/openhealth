@@ -149,14 +149,14 @@ Synthetic window: **2024-10-28 → 2026-10-25** (crosses four DST changes; the g
 | Sub-1:15 (the hero) | 1, 2 | Four HYROX races: 1:28:14 → 1:21:40 → 1:24:55 → 1:14:32 in Sept 2026 |
 | The March setback | 7 | March 2026 slower than September 2025, then the breakthrough |
 | The summer gap | 4, 12 | 27 days with no logs in June 2025; note "First day back. Slow."; deadlift back to 250 in 3 weeks |
-| The deadlift plateau | 3 | 4x4 at 265 from Sept 2025 to March 2026, then a break to 275+ |
+| The deadlift plateau | 3 | 4x4 at 265 through blocks 7–9 (Nov 2025 to March 2026), then a break to 275+ in April 2026 |
 | The long streak | 5, 13 | 14 straight weeks of 4+ sessions; class 300 inside it |
 | Same track, less strain | 8 | 6 x 800m at 3:20 with rep heart rate down ~5 bpm from April to September 2026 |
 | Fridays in winter | 10 | Mindbody late-cancels cluster on winter Fridays |
 | Heavy weeks | 11 | Top-volume weeks followed by lower 3-day HRV averages |
-| "Wall balls" | 12 | The phrase in notes in March, May, and September 2026 |
+| "Wall balls" | 12 | The phrase in notes in March, June, and September 2026 |
 | The standout | 9 | One 5k time trial far above typical (Apr 2026), then back to typical |
-| Decoys | — | A single great day without confirmation; a 3-week "trend" inside the noise band. The engine must **not** write these. |
+| Decoys | — | A single great day without confirmation; a two-session "trend" inside the noise band. The engine must **not** write these. |
 
 The decoys matter as much as the stories. They test whether the analyst knows when to stay quiet.
 

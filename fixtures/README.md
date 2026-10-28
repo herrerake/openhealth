@@ -26,14 +26,29 @@ Henry Walsh lives in Austin and trains for HYROX. His week mirrors the founder's
 
 | Day | Session | Mindbody | WodUp | Apple Watch |
 |---|---|---|---|---|
-| Mon | Club Hybrid 07:00: strength (deadlift 4x4 @ 80%, push press 3x5 @ 70%), circuit, farmer-carry finisher | "Club Hybrid", Jack Woolsey | Warm-up + lettered blocks | Functional Strength Training |
+| Mon | Club Hybrid 07:00: strength, then a circuit (see the block table below) | "Club Hybrid", Jack Woolsey | Warm-up + lettered blocks | Functional Strength Training |
 | Tue | Run Club at the track: 6 x 800m @ 3:20 every other week, else 5 x 1k or 10 x 400m | "Run Club" | CardioIntervals | Outdoor Run with one segment per rep and recovery |
-| Wed | Club Hybrid: threshold intervals (6x5min w/2min rest, run → max wall balls, erg → max lunges) | "Club Hybrid" | Generic, scored by reps | Functional Strength Training |
+| Wed | Club Hybrid: conditioning, from Zone 2 continuous work to threshold rounds | "Club Hybrid" | Generic or Amrap; threshold intervals scored by reps | Functional Strength Training |
 | Thu | Run Club: 5k time trial in the first week of the month, else tempo 3 x 2k or an easy 8–10k | "Run Club" | Cardio | Outdoor Run with segments |
-| Fri | Club Hybrid: the 40-min race-simulation AMRAP every fourth week, other hybrid AMRAPs between | "Club Hybrid" | Amrap | Functional Strength Training |
+| Fri | Club Hybrid: the long piece, ending with the 40-min race-simulation AMRAP in week 8 | "Club Hybrid" | Generic or Amrap | Functional Strength Training |
 | Sat | Sometimes an easy run | — | — | Outdoor Run |
 
-The workout text copies the real Club Hybrid programming (warm-up line, "A. Main Block", "Goal: Consistent pacing.", "PUSH YOURSELF hard in each 5min round…"). About one track day in ten exists only on the watch: no booking, nothing in WodUp.
+About one track day in ten exists only on the watch: no booking, nothing in WodUp.
+
+**Club Hybrid runs in 8-week blocks (D-046).** The gym programs on its own calendar: 13 blocks from 2024-10-28, listed in `expected.blocks`. Races land wherever they fall. WodUp has no block or week field (a Program's `period` is just `"continuous"`), so the calendar is ground truth here and the app has to get it from the gym or the athlete. Every block repeats one template, and the workout text copies a real Club Hybrid block (35 WodUp screenshots, block titles and coach notes kept):
+
+| Week | Mon (strength) | Wed (conditioning) | Fri (long piece) |
+|---|---|---|---|
+| 1 | Back squat 4x6 @ 60%, superset, accessory circuit | Aerobic Engine Builder: 35 min Zone 2, monkey-bar finisher | EMOM15, circuit, 6-min AMRAP finisher |
+| 2 | Deadlift 4x6 @ 60–70%, push press 4x6 @ 50% | Continuous Grinder: 36 min high Zone 2 | 40/20 circuit (scored by reps), EMOM5, partner finisher |
+| 3 | Barbell reverse lunge 4x12, back squat 3x8 @ 60% | Main Block: 38 min Zone 2, AMRAP style (scored by rounds) | No man left behind: 45-min cap |
+| 4 | Back squat 5x5 @ 70%, push press 4x6 @ 70% | Main working set: 25 min tempo, 10-min EMOM | 30-min AMRAP (scored by rounds) |
+| 5 | Deadlift 5x5 @ 70–75%, reverse lunge 4x12 | "This is gonna be tough": 4 x 10 min, the block's first threshold workout | 32-min AMRAP, "Slightly harder than Week 4" |
+| 6 | **Deadlift 4x4 @ 80%**, push press 5x5 @ 70%, heavy sled circuit | **Threshold Intervals** 6x5min (scored by reps) | Race Pace Test: 40 min at target race pace |
+| 7 | Back squat 5x4 @ 80%, Pendlay row 4x6 | Main working set: 4x7min at threshold, sled finisher | "Lactic Acid, yum": 38-min AMRAP + 100 wall balls |
+| 8 | **Deadlift 4x4 @ 80%**, push press 3x5, circuit, farmer-carry finisher | **Threshold Intervals** again | **40-min race-simulation AMRAP** |
+
+Race weeks swap Monday for "Strength Maintenance" (squat and push press 4x3 @ 70–80%) and Wednesday for an EMOM ("A CCB Classic"). The bold sessions repeat inside a block and in the same week of every block, so a block can be compared with itself (week 6 against week 8) and with the blocks before it. `expected.storylines → block_build` lists what Henry scored in each.
 
 **Heart rate follows the blocks.** Each workout is a list of blocks with a target effort over time (sets and rests, steady AMRAPs, work/rest intervals, carries, cool-downs). Heart rate chases the target with a lag, faster up than down, and fitter Henry needs fewer beats for the same effort. One fitness curve drives every benchmark and heart-rate response, so progress, the summer gap, the winter slide and the breakthrough agree across sources. `expected.timelines` records the true start and end of every block so the session timeline's matching can be scored (D-038).
 
@@ -57,15 +72,16 @@ Each storyline and decoy is listed with its facts in `expected.json → storylin
 | `hyrox_sub_115` | Four races, 1:28:14 → 1:21:40 → 1:24:55 → 1:14:32; "Wall balls unbroken in Dallas. Finally." two days later |
 | `march_setback` | March 2026 is slower than September 2025: stations about the same, slower runs |
 | `summer_gap` | No records in any source 2025-06-09 → 07-05; "First day back. Slow." on 07-07; deadlift back to 250 by 07-28 |
-| `deadlift_plateau` | Deadlift 4x4 at 265 from 2025-09-29 to 2026-03-23, then 275, then 285 |
+| `deadlift_plateau` | Deadlift 4x4 at 265 through blocks 7–9 (2025-11-03 to 2026-03-09, apart from the decoy), then 275 on 2026-04-20, then 285 |
 | `long_streak` | 14 straight weeks of 4+ sessions from 2026-05-25; every other run of 4+ is capped at 9 |
 | `track_less_strain` | The same 6 x 800m @ 3:20, rep heart rate down ~5 bpm from April to September 2026 (computed from the records) |
 | `winter_fridays` | Mindbody late-cancels cluster on Fridays, Dec–Feb |
 | `heavy_weeks` | HRV dips ~6 ms on the Mon–Wed after a 6-session week |
-| `wall_ball_words` | "Wall balls" in notes on 2026-03-23, 05-20 and 09-21 |
+| `wall_ball_words` | "Wall balls" in notes on 2026-03-23, 06-17 and 09-21 |
+| `block_build` | Per block: the week 6 and week 8 deadlift 4x4 and threshold reps, and the week 8 40-min AMRAP. The AMRAP goes from 4.2 rounds in block 1 to 5.8 in block 12 (5.6 in block 13, past the Dallas peak) and holds flat through the winter blocks. Week 8's threshold reps beat week 6's by about 5: the second time through, he paces it better |
 | `time_trial_standout` | A 18:55 5k time trial on 2026-04-16, then back to typical |
 | Decoy `single_great_day` | One 295 lb deadlift 4x4 day on 2025-11-17 that never repeats |
-| Decoy `short_trend` | A three-week 255 lb deadlift bump in April 2025, inside the noise band |
+| Decoy `short_trend` | Deadlift 4x4 at 250 then 255 (2025-03-24, 04-07), back to 245, inside the noise band |
 
 ## Planted edge cases (final four weeks)
 

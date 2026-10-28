@@ -147,6 +147,26 @@ const MV = {
   row: movement("mv_Rw2kErG0", "Row", ["distance", "duration", "calories", "power"]),
   erg: movement("mv_Eg4rRg2N", "Erg", ["distance", "duration", "calories"]),
   run: movement("mv_Rn1mEt3R", "Run", ["distance", "duration"]),
+  reverseLunge: movement("mv_Rl7vG3eB", "Barbell Reverse Lunge", ["load", "reps"]),
+  pendlayRow: movement("mv_Pr4dL7rW", "Pendlay Row", ["load", "reps"]),
+  ohp: movement("mv_Oh2pS6tR", "Strict Press", ["load", "reps"]),
+  gobletSquat: movement("mv_Gs4qT7bL", "Goblet Squat", ["load", "reps"]),
+  dbRdl: movement("mv_Dr3lD5rL", "DB Romanian Deadlift", ["load", "reps"]),
+  dbRow: movement("mv_Br5oW2vR", "DB Bent Over Row", ["load", "reps"]),
+  dbPress: movement("mv_Do7hP4pR", "DB Shoulder Press", ["load", "reps"]),
+  dbPushPress: movement("mv_Dp8pR3sS", "DB Push Press", ["load", "reps"]),
+  thruster: movement("mv_Th8rU3sT", "DB Thruster", ["load", "reps"]),
+  renegadeRow: movement("mv_Rr9nG4rW", "Renegade Row", ["load", "reps"]),
+  splitSquat: movement("mv_Bs2qU8tS", "Bulgarian Split Squat", ["load", "reps"]),
+  calfRaise: movement("mv_Cr5aL6sE", "Calf Raise", ["load", "reps"]),
+  airSquat: movement("mv_As5qT2aR", "Air Squat", ["reps"]),
+  pullUp: movement("mv_Pl9uP4uP", "Pull-Up", ["reps"]),
+  pushUp: movement("mv_Pu6sH1pU", "Push-Up", ["reps"]),
+  legRaise: movement("mv_Lg5rA9sE", "Leg Raise", ["reps"]),
+  sitUp: movement("mv_Su3pS8tU", "Sit-Up", ["reps"]),
+  ghdSitUp: movement("mv_Gh5sU7pS", "GHD Sit-Up", ["reps"]),
+  burpee: movement("mv_Bp4eE7pB", "Burpee", ["reps"]),
+  plank: movement("mv_Pk3lN8kH", "Plank", ["duration"]),
 };
 
 function warmUp(description) {
@@ -177,11 +197,12 @@ function generic(name, description, movements, { scoreBy = "none", result = {} }
   };
 }
 
-function strength(mv, sets, reps, percent, loads, { prIndex = -1, prAmount = null } = {}) {
-  const rest = { type: "as_needed" };
+function strength(mv, sets, reps, percent, loads, { prIndex = -1, prAmount = null, restS = null } = {}) {
+  const rest = restS ? { type: "fixed", duration: restS } : { type: "as_needed" };
+  const restText = !restS ? "Rest as needed" : restS % 60 ? `Rest ${restS} seconds between sets` : `Rest ${restS / 60} minutes between sets`;
   return {
     workout: {
-      description: `${sets} sets of ${reps} reps @ ${percent}% of 1RM\nRest as needed`,
+      description: `${sets} sets of ${reps} reps${percent == null ? "" : ` @ ${percent}% of 1RM`}\n${restText}`,
       details: { movements: [{ id: mv.id, reps: String(reps), load: null }], rest, type: "Strength" },
       movements: [mv],
       name: null,
@@ -466,7 +487,9 @@ function visit(date, hhmm, program, { signedIn = true, lateCancelled = false } =
 const SCORED = new Set(["StrengthResult", "AmrapResult", "CardioResult", "CardioIntervalsResult"]);
 
 function session(date, parts, doneAtMs, opts = {}) {
-  const scoredIdx = Math.max(0, parts.findIndex((p) => SCORED.has(p.type) || (p.type === "GenericResult" && p.details.reps != null)));
+  const scored = parts.findIndex((p) => SCORED.has(p.type) || (p.type === "GenericResult" && p.details.reps != null));
+  // Nothing scored (a Zone 2 piece, say): the note goes on the first block after the warm-up.
+  const scoredIdx = scored >= 0 ? scored : Math.max(0, parts.findIndex((p) => p.type !== "WarmUpResult"));
   const results = parts.map((p, i) => {
     const part = i === scoredIdx && !p.note && !opts.notes && rand() < 0.15 ? withNote(p, pick(NOTE_POOL)) : p;
     return wodupResult(part, doneAtMs, opts, i === scoredIdx);
@@ -565,9 +588,50 @@ function watchOnlyRun(date, plan, { hhmm = "07:00", stravaDuplicate = false } = 
 }
 
 // ---------- Club Hybrid programming (from the real WodUp classes) ----------
+// Club Hybrid programs in 8-week blocks that cycle through the year on the gym's calendar
+// (D-046): block 1 opens the window, every block repeats the same week-by-week shape, and a
+// race lands wherever it falls. The template copies one real Club Hybrid block. Strength runs
+// from 4x6 at 60% of 1RM to 4x4 at 80%; conditioning runs from Zone 2 continuous work through
+// tempo and threshold rounds to race-specific work. Deadlift 4x4 lands in weeks 6 and 8, the
+// threshold intervals in weeks 6 and 8, and the 40-minute race simulation in week 8, so a block
+// can be compared with itself and with the same week of any other block.
 
 const T = (label, minutes, effort, part = null) => ({ label, seconds: Math.round(minutes * 60), effort, part });
 const gapBlock = (minutes, effort = 0.22) => ({ label: null, seconds: Math.round(minutes * 60), effort: flat(effort), part: null });
+
+const BLOCK_WEEKS = 8;
+const BLOCK_COUNT = WEEKS / BLOCK_WEEKS;
+function blockOf(date) {
+  const w = weekIndexOf(date);
+  return { block: Math.floor(w / BLOCK_WEEKS) + 1, week: (w % BLOCK_WEEKS) + 1 };
+}
+const blockStart = (block) => addDays(FROM, (block - 1) * BLOCK_WEEKS * 7);
+
+// What Henry scored in each block, for the block_build storyline.
+const blockLog = new Map();
+function logBlock(date, key, value) {
+  const { block, week } = blockOf(date);
+  if (!blockLog.has(block)) blockLog.set(block, {});
+  blockLog.get(block)[`${key}W${week}`] = value;
+}
+
+const round5 = (x) => 5 * Math.round(x / 5);
+const loadAt = (oneRm, percent) => round5((oneRm * percent) / 100);
+const squat1rm = (date) => 250 + 45 * fitness(date);
+const pushPress1rm = (date) => 160 + 25 * fitness(date);
+// Deadlift 4x4 @ 80% in weeks 6 and 8 of each block. The loads carry the storylines: a short
+// trend in spring 2025, the comeback after the summer gap, the one-off 295, three blocks at 265,
+// then the break to 275 and on to 285.
+const DEADLIFT_4X4 = [
+  [235, 235], [240, 240], [250, 255], [245, 250], [235, 250], [255, 260], [265, 295],
+  [265, 265], [265, 265], [275, 275], [280, 280], [285, 285], [285, 285],
+];
+const deadlift4x4 = (date) => {
+  const { block, week } = blockOf(date);
+  return DEADLIFT_4X4[block - 1][week === 6 ? 0 : 1];
+};
+const deadlift1rm = (date) => DEADLIFT_4X4[blockOf(date).block - 1][0] / 0.8;
+const isDeadliftBenchmark = (date) => [6, 8].includes(blockOf(date).week);
 
 const WARMUPS = [
   "Coach led dynamic warmup - Posterior chain focused",
@@ -575,48 +639,202 @@ const WARMUPS = [
   "Coach led dynamic warmup - Run drills + 400m easy",
   "Coach led dynamic warmup - Upper body and core activation",
 ];
+const warmUpBlock = (date, minutes = 12) =>
+  T("Warm Up", minutes, ramp(0.06, 0.36), warmUp(date === FIRST_DAY_BACK ? WARMUPS[0] : pick(WARMUPS)));
+const classPlan = (blocks) => ({ appleType: FST, indoor: true, blocks });
+const lift = (label, mv, sets, reps, percent, load, opts = {}) =>
+  T(label, sets * 3 + 1, cycles(sets, 40, 0.55, 0.24), strength(mv, sets, reps, percent, Array(sets).fill(load), opts));
 
-// Monday: strength, then a circuit and a carry finisher.
+const MONKEY_BAR = [
+  `AMRAP (rest as needed)\n10 Leg Raises / Knee Raises\nMAX Deadhang\nMAX Chin Ups (underhand grip - use bands)\n\nTime Cap: 8 minutes`,
+  `AMRAP\n5-7 Pull Ups (use bands if needed)\n12 Leg Raises / Knee Raises\n\nTime Cap: 8 minutes`,
+  `AMRAP\n5-7 Pull Ups or ring rows (use bands if needed)\n12 Leg Raises / Knee Raises\n\nTime Cap: 8 minutes`,
+];
+const monkeyBar = (label, i) =>
+  T(label, 8, cycles(4, 60, 0.6, 0.3), generic("Monkey Bar Finisher", MONKEY_BAR[i], [MV.pullUp, MV.legRaise]));
+
+// Monday: strength, alternating squat weeks and deadlift weeks.
 function strengthDay(date) {
-  const load = deadliftLoad(date);
-  const pushPress = 115 + 5 * Math.round(fitness(date) * 4);
-  const chinUps = 8 + Math.round(fitness(date) * 5);
-  return {
-    appleType: FST,
-    indoor: true,
-    blocks: [
-      T("Warm Up", 12, ramp(0.06, 0.36), warmUp(date === FIRST_DAY_BACK ? WARMUPS[0] : pick(WARMUPS))),
+  if (raceWeekOf(date)) return maintenanceDay(date);
+  const f = fitness(date);
+  const { week } = blockOf(date);
+  const squat = squat1rm(date);
+  const pp = pushPress1rm(date);
+  const dl = deadlift1rm(date);
+  const rest2 = { restS: 120 };
+  const rest90 = { restS: 90 };
+  const plans = {
+    1: () => [
+      warmUpBlock(date),
       gapBlock(1),
-      T("A. Deadlift", 13, cycles(4, 40, 0.55, 0.24), strength(MV.deadlift, 4, 4, 80, Array(4).fill(load))),
+      lift("A. Back Squat", MV.backSquat, 4, 6, 60, loadAt(squat, 60), rest2),
       gapBlock(1),
-      T("B. Push Press", 10, cycles(3, 35, 0.52, 0.24), strength(MV.pushPress, 3, 5, 70, Array(3).fill(pushPress))),
+      T("B. SuperSet", 9, cycles(3, 70, 0.6, 0.3), generic("SuperSet", `3 ROUNDS\n10 DB RDLs (Heavy)\n10 DB Alternating Single Arm OHP (Strict)\n\nRest :90 - 1:20 after both movements completed`, [MV.dbRdl, MV.dbPress])),
       gapBlock(1),
-      T(
-        "C. Circuit",
-        13,
-        wave(0.54, 0.08, 150),
-        generic(
-          "Circuit",
-          `x3 Rounds\n- 20"Box Step Ups x6ea leg (Med- Heavy Weight)\n- MAX Chin Ups\n- Side or Copenhagen plank :20-:30 each side`,
-          [MV.boxStepUp, MV.chinUp, MV.sidePlank],
-          { scoreBy: "reps_desc", result: { reps: chinUps * 3 } },
-        ),
-      ),
-      T(
-        "D. FC finisher",
-        5,
-        cycles(3, 50, 0.66, 0.34),
-        generic("FC finisher", "HEAVY Farmer Carries\n3x 40m FC\nWomen = 2x 40bs DBs and up\nMen = 2x 60lbs DBs and up", [MV.farmerCarry]),
-      ),
+      T("C. Accessory Circuit", 12, wave(0.5, 0.06, 180), generic("Accessory Circuit", `2-3 ROUNDS\n- 8/8 Bulgarian Split Squats\n- 20 Standing Calf Raises (Hold Light - Med DBs)\n- :30/:30 Side Plank Holds\n- 10 DB Lat Raises (Light - Medium Weight)`, [MV.splitSquat, MV.calfRaise, MV.sidePlank])),
     ],
+    2: () => [
+      warmUpBlock(date),
+      gapBlock(1),
+      lift("A. Deadlift", MV.deadlift, 4, 6, "60-70", loadAt(dl, 65), rest2),
+      gapBlock(1),
+      lift("B. Push Press", MV.pushPress, 4, 6, 50, loadAt(pp, 50), rest2),
+      gapBlock(1),
+      T("C. Accessory Circuit", 12, wave(0.5, 0.06, 180), generic("Accessory Circuit", `2-3 ROUNDS\n- 8/8 Walking DB Lunges\n- 8/8 Single Leg RDLs\n- :30/:30 Waiter Holds (10 or 25lb Plates)\n- 10/10 Pallof Press w 2sec hold\n- 20 Tibialis Raises (Light - Med DBs)`, [MV.lunge, MV.dbRdl])),
+    ],
+    3: () => [
+      warmUpBlock(date),
+      gapBlock(1),
+      lift("A. Barbell Reverse Lunge", MV.reverseLunge, 4, 12, "60-70", loadAt(squat, 40), rest90),
+      gapBlock(1),
+      lift("B. Back Squat", MV.backSquat, 3, 8, 60, loadAt(squat, 60), rest90),
+      gapBlock(1),
+      T("C. Superset", 8, cycles(3, 60, 0.55, 0.3), generic("Superset", `x3\n8/8 Half Kneeling DB Press\n10 Hamstring Curls (use rower or foam roller - NOT MEDBALLS)`, [MV.dbPress])),
+      gapBlock(1),
+      T("D. Circuit", 9, wave(0.52, 0.06, 180), generic("Circuit", `x2-3\n8/8 Step Ups (20" or 24" box) - Heavy DBs\n20 standing calf raises (hold light DBs in hands)\n1:30 Plank (:30 normal, then :30 on each side)`, [MV.boxStepUp, MV.calfRaise])),
+    ],
+    4: () => [
+      warmUpBlock(date),
+      gapBlock(1),
+      lift("A. Back Squat", MV.backSquat, 5, 5, 70, loadAt(squat, 70), rest2),
+      gapBlock(1),
+      lift("B. Push Press", MV.pushPress, 4, 6, 70, loadAt(pp, 70), rest2),
+      gapBlock(1),
+      T("C. Circuit", 13, wave(0.56, 0.08, 150), generic("Circuit", `x3 Rounds\n10 DB RDLs (heavy)\nMAX Pull Ups\n10/10 Bulgarian Split Squats\nMAX Push Ups\n12 GHD "Crunches" or 15 weighted sit ups (15-25lb plate)`, [MV.dbRdl, MV.pullUp, MV.splitSquat, MV.pushUp], { scoreBy: "reps_desc", result: { reps: 3 * (6 + Math.round(f * 4)) } })),
+    ],
+    5: () => [
+      warmUpBlock(date),
+      gapBlock(1),
+      lift("A. Deadlift", MV.deadlift, 5, 5, "70-75", loadAt(dl, 72.5), rest2),
+      gapBlock(1),
+      lift("B. Barbell Reverse Lunge", MV.reverseLunge, 4, 12, null, loadAt(squat, 40), rest2),
+      gapBlock(1),
+      T("C. Circuit", 12, wave(0.54, 0.07, 150), generic("Circuit", `x3 Rounds\n6-8 Barbell STRICT OHP (50%RPE)\n10-12 Hamstring Curls (use rowers or foam rollers)\nMAX Empty (overhand hold) Barbell curls`, [MV.ohp])),
+    ],
+    6: () => [
+      warmUpBlock(date),
+      gapBlock(1),
+      lift("A. Deadlift", MV.deadlift, 4, 4, 80, deadlift4x4(date)),
+      gapBlock(1),
+      lift("B. Push Press", MV.pushPress, 5, 5, 70, loadAt(pp, 70), rest2),
+      gapBlock(1),
+      T("C. Circuit", 17, wave(0.6, 0.08, 150), generic("Circuit", `x4 Rounds\n20 Light Weight Calf Raises\n12.5m Sled Push - HEAVYYYYYYYYYYYY\nMAX Pull Ups /Ring Rows /Assisted Pull Ups\nMAX Push Ups`, [MV.calfRaise, MV.sledPush, MV.pullUp, MV.pushUp])),
+    ],
+    7: () => [
+      warmUpBlock(date),
+      gapBlock(1),
+      lift("A. Back Squat", MV.backSquat, 5, 4, 80, loadAt(squat, 80), rest2),
+      gapBlock(1),
+      lift("B. Pendlay Row", MV.pendlayRow, 4, 6, 70, round5(0.55 * squat * 0.7)),
+      gapBlock(1),
+      T("C. Circuit", 9, wave(0.5, 0.06, 180), generic("Circuit", `x2\n10 GHDs (or Ab Mat Sit Ups)\nFull Booty Band Matrix (10R, 10L, 10F& 10B)\n10 Lat Raises (Light - Med Weight)\n:30 Glute Bridge Holds (big squeeze!!!!)`, [MV.ghdSitUp])),
+    ],
+    8: () => {
+      const load = deadlift4x4(date);
+      return [
+        warmUpBlock(date),
+        gapBlock(1),
+        lift("A. Deadlift", MV.deadlift, 4, 4, 80, load),
+        gapBlock(1),
+        T("B. Push Press", 10, cycles(3, 35, 0.52, 0.24), strength(MV.pushPress, 3, 5, 70, Array(3).fill(loadAt(pp, 70)))),
+        gapBlock(1),
+        T("C. Circuit", 13, wave(0.54, 0.08, 150), generic("Circuit", `x3 Rounds\n- 20"Box Step Ups x6ea leg (Med- Heavy Weight)\n- MAX Chin Ups\n- Side or Copenhagen plank :20-:30 each side`, [MV.boxStepUp, MV.chinUp, MV.sidePlank], { scoreBy: "reps_desc", result: { reps: (8 + Math.round(f * 5)) * 3 } })),
+        T("D. FC finisher", 5, cycles(3, 50, 0.66, 0.34), generic("FC finisher", "HEAVY Farmer Carries\n3x 40m FC\nWomen = 2x 40bs DBs and up\nMen = 2x 60lbs DBs and up", [MV.farmerCarry])),
+      ];
+    },
   };
+  if (week === 6 || week === 8) logBlock(date, "deadlift4x4", deadlift4x4(date));
+  return classPlan(plans[week]());
 }
 
-// Wednesday: threshold intervals.
+// Race week Monday: hold strength, drop the volume.
+function maintenanceDay(date) {
+  const squat = squat1rm(date);
+  const pp = pushPress1rm(date);
+  return classPlan([
+    warmUpBlock(date, 10),
+    gapBlock(1),
+    lift("A. Back Squat", MV.backSquat, 4, 3, "70-80", loadAt(squat, 75)),
+    gapBlock(1),
+    lift("B. Push Press", MV.pushPress, 4, 3, "70-80", loadAt(pp, 75)),
+    gapBlock(1),
+    T("C. SuperSet", 8, cycles(3, 60, 0.55, 0.3), generic("SuperSet", `3 Rounds\n- Barbell Reverse Lunges x5 each leg @ RPE7\n- RDLs x8 @ RPE7`, [MV.reverseLunge, MV.dbRdl])),
+    T("D. Core + Running Support", 6, wave(0.42, 0.04, 120), generic("Core + Running Support", `2-3 Rounds\n- Deficit Calf Raises (toes on a plate) 20 reps\n- PallofPress x 8-10 on each side`, [MV.calfRaise])),
+  ]);
+}
+
+// Wednesday: Zone 2 continuous work early in the block, threshold rounds late.
 function thresholdDay(date) {
-  const rounds = pick([6, 6, 5]);
+  if (raceWeekOf(addDays(date, -2))) return emomDay(date);
+  const f = fitness(date);
+  const { week } = blockOf(date);
+  if (week === 6 || week === 8) return thresholdIntervals(date, f);
+  const plans = {
+    1: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. Boring but important - Aerobic Engine Builder :)", 35, wave(0.62, 0.03, 300), generic("Boring but important - Aerobic Engine Builder :)", `35mins Continuous Work\n\n800m Run\n500m Row / Ski / Bike\n600m Run\n400m Row /Ski / Bike\n400m Run\n20 (total) Box Step Ups (24")\n\nZone 2 to low Zone 3 the entire time! HR spikes? Slow down. Finish feeling like you could continue another 10+ minutes\n\nTime Cap: 35 minutes`, [MV.run, MV.row, MV.boxStepUp])),
+      gapBlock(1),
+      monkeyBar("B. Monkey Bar Finisher", 0),
+    ],
+    2: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. Continuous Grinder", 36, wave(0.68, 0.04, 300), generic("Continuous Grinder", `36mins continuous work\n\n1000m Run -> 20 Body Weight Squats\n500m Row / Ski / Bike\n800m Run -> 20 Bodyweight Lunges\n400m Row / Ski /Bike\n600m Run -> 20 (total) Step Ups (24")\n300m Row / Ski / Bike\n\nPacing? Comfortably uncomfortable: High Z2 - Zone 3. Able to speak, but in short sentences. No redlining.`, [MV.run, MV.row, MV.airSquat, MV.lunge, MV.boxStepUp])),
+      gapBlock(1),
+      monkeyBar("B. Monkey Bar Finisher", 1),
+    ],
+    3: () => {
+      const parts = [
+        [MV.run, { distance: "1000", distance_unit: "meters" }],
+        [MV.skiErg, { distance: "800", distance_unit: "meters" }],
+        [MV.run, { distance: "800", distance_unit: "meters" }],
+        [MV.skiErg, { distance: "600", distance_unit: "meters" }],
+        [MV.run, { distance: "600", distance_unit: "meters" }],
+        [MV.burpeeBroadJump, { distance: "40", distance_unit: "meters" }],
+        [MV.run, { distance: "400", distance_unit: "meters" }],
+        [MV.lunge, { distance: "40", distance_unit: "meters" }],
+      ];
+      const done = 8 + Math.round(3 + 4 * f + between(-0.6, 0.6)); // stations finished in 38 minutes
+      const description = `38mins Continuous Effort - amrap style\n\nNo surges. No racing. No redlining. Keep HR in Z2 & Low Z3\nGo SLOW if your HR starts spiking. You should finish this workout feeling like you worked hard, but never found the pain cave.\n\n1k Run\n800m Ski / Row / Bike\n800m Run\n600m Ski / Row / Bike\n600m Run\n40m Burpee Broad Jumps\n400m Run\n40m Walking Lunges (no weight)`;
+      return [
+        warmUpBlock(date, 10),
+        gapBlock(2),
+        T("A. Main Block", 38, wave(0.64, 0.03, 300), amrap("Main Block", 38, parts, description, Math.floor(done / 8), done % 8, done % 8 ? int(100, 500) : 0)),
+        gapBlock(1),
+        monkeyBar("B. Monkey Bar Finisher", 2),
+      ];
+    },
+    4: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. Main Working Set - 25mins", 25, wave(0.72, 0.05, 330), generic("Main Working Set - 25mins", `x4-5\n400m Run (High Aerobic - Tempo Pace)\n15 Wall Balls (10/14/20lbs)\n15 Goblet Squats (20-50lbs DB)\n20m Farmer Carry (Hyrox Open Weight)\n10 Arm only Wall Balls (10/14lbs)\n10 Push Press (15-30lb DBs)\n\nTime Cap: 25 minutes\nMove continuously.\nNo sprinting. No redlining.`, [MV.run, MV.wallBall, MV.gobletSquat, MV.farmerCarry, MV.dbPushPress])),
+      gapBlock(2),
+      T("B. EMOM - 10mins", 10, cycles(10, 38, 0.68, 0.45), generic("EMOM - 10mins", `Odd Minutes: 14 - 20 Walking Lunges (Hyrox open weight)\n\nEven Minutes: 8-12 Renegade Rows (no heavier than 30s)\n\nTime Cap: 10 minutes`, [MV.lunge, MV.renegadeRow])),
+    ],
+    5: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. This is gonna be tough", 46, cycles(4, 600, 0.84, 0.36, { climb: 0.05 }), generic("This is gonna be tough", `4 x 10min Rounds\n2min rest between rounds\n\n1000m Run\nErg in remaining time\n\nThis is the first truly threshold and above focused workout of the block. Push yourself. Go for it.`, [MV.run, MV.erg])),
+    ],
+    7: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. Main working set", 28, cycles(4, 300, 0.85, 0.4, { climb: 0.04 }), generic("Main working set", `4x7min rounds\n400m Run (Threshold Pace)\n12/15 Cal Row or Ski (or 8/10cals on bike)\n400m Run (tempo - Threshold Pace)\n**Rest in any remaining time left**\n\nFor CH+ members - slow runs down to account for fatigue from track workout.`, [MV.run, MV.row])),
+      gapBlock(2),
+      T("B. Sled Finisher", 10, cycles(6, 35, 0.74, 0.3), generic("Sled Finisher", `6 x 12.5m Sled Push @ upcoming race weight\nTake time, swap with others. Treat like a strength exercise.\n\nSled = 65lbs & 2 Poles = 10lbs\n\nWO = 225lbs (aka 3x45s & 1x 15lb plates)\nWP / MO = 335lbs (aka 5x45s & 1x 35lb plates)\nMP = 445lbs (aka 6x45s & 2x 50lb DBs on either side of sled)`, [MV.sledPush])),
+    ],
+  };
+  return classPlan(plans[week]());
+}
+
+// The threshold intervals, weeks 6 and 8: the same six rounds, scored by reps.
+function thresholdIntervals(date, f) {
+  const rounds = 6;
   const roundMin = 5;
-  const reps = Math.round((rounds * (22 + 10 * fitness(date))) + between(-4, 4));
+  // The second time through a block (week 8), he paces the same six rounds better.
+  const reps = Math.round(rounds * (22 + 10 * f) + between(-4, 4)) + (blockOf(date).week === 8 ? 5 : 0);
+  logBlock(date, "thresholdReps", reps);
   const lines = Array.from({ length: rounds }, (_, i) =>
     i % 2 === 0 ? `${i + 1} - 600m - 800m Run -> MAX Wall Balls` : `${i + 1} - 400m - 600m Erg -> MAX Walking Lunges`,
   ).join("\n");
@@ -626,57 +844,124 @@ function thresholdDay(date) {
     [MV.run, MV.wallBall, MV.erg, MV.lunge],
     { scoreBy: "reps_desc", result: { reps } },
   );
-  return {
-    appleType: FST,
-    indoor: true,
-    blocks: [
-      T("Warm Up", 10, ramp(0.12, 0.45), warmUp(pick(WARMUPS))),
-      gapBlock(2),
-      T("A. Threshold Intervals", rounds * 7 - 2, cycles(rounds, roundMin * 60, 0.84, 0.36, { climb: 0.06 }), part),
-      T("B. Cool Down", 4, ramp(0.35, 0.12), generic("Cool Down", "5mins easy on Row/ski/bike", [MV.row])),
-    ],
-  };
+  return classPlan([
+    T("Warm Up", 10, ramp(0.12, 0.45), warmUp(pick(WARMUPS))),
+    gapBlock(2),
+    T("A. Threshold Intervals", rounds * 7 - 2, cycles(rounds, roundMin * 60, 0.84, 0.36, { climb: 0.06 }), part),
+    T("B. Cool Down", 4, ramp(0.35, 0.12), generic("Cool Down", "5mins easy on Row/ski/bike", [MV.row])),
+  ]);
 }
 
-// Friday: the 40-minute race-simulation AMRAP every fourth week, other hybrid AMRAPs between.
+// Race week Wednesday: one sharp EMOM and a few sled pushes, nothing to recover from.
+function emomDay(date) {
+  return classPlan([
+    warmUpBlock(date, 10),
+    gapBlock(2),
+    T("A. A CCB Classic", 35, cycles(35, 35, 0.72, 0.45), generic("A CCB Classic", `5movements x7 rounds - 35min EMOM\n\n1. :35 Sprint on Erg of choice (bike/row/ski)\n2. 16-24 Reverse lunges (Body weight)\n3. MAX Wall Ball OverHead Hold (arms locked - fully extended)\n4. 12-15 Wall Balls\n5. Rest`, [MV.erg, MV.lunge, MV.wallBall])),
+    gapBlock(2),
+    T("B. Sled Finisher", 7, cycles(4, 40, 0.74, 0.3), generic("Sled Finisher", `4x 12.5m Sled Push\nAHAP\n\nShare sleds - take as much time as you need between sets treat this like a strength exercise not a race`, [MV.sledPush])),
+  ]);
+}
+
+// Friday: the long piece. Week 8 is the 40-minute race simulation.
 function amrapDay(date) {
-  const benchmark = weekIndexOf(date) % 4 === 1;
-  const minutes = benchmark ? 40 : pick([30, 35]);
-  const station = benchmark
-    ? [
+  const f = fitness(date);
+  const { week } = blockOf(date);
+  const coolDown = T("B. Cool Down", 5, ramp(0.35, 0.12), generic("Cool Down", "5mins easy on Row/ski/bike", [MV.row]));
+  const plans = {
+    1: () => {
+      const parts = [[MV.wallBall, { reps: "10" }], [MV.sitUp, { reps: "10" }]];
+      const done = 2 * (5 + Math.round(2 * f)) + int(0, 1);
+      return [
+        warmUpBlock(date, 10),
+        gapBlock(2),
+        T("A. EMOM15", 15, cycles(15, 40, 0.62, 0.4), generic("EMOM15", `EMOM 15 - 5 Rounds\n\n- 12 Goblet Squats (20-40lbs) (Heel Elevated 25lb PLate)\n- 6/6 Bent Over Rows (Med - Heavy)\n- 10 Dual DB Push Press (2x 15-30lb DBs)\n\nModerate load. Unbroken reps.`, [MV.gobletSquat, MV.dbRow, MV.dbPushPress])),
+        gapBlock(1),
+        T("B. Circuit", 16, wave(0.66, 0.05, 240), generic("Circuit", `4 Rounds (16 TC)\n\n250 - 300m Row\n8/8 Walking Lunges (2x 10-30lb DBs)\n6/6 Box Step Ups (24") (use same weight as lunges)\n12 Single KB Deadlifts (moderate weight)\n10 Push-Ups\n\nSteady Consistent effort throughout - no burn out`, [MV.row, MV.lunge, MV.boxStepUp, MV.pushUp])),
+        gapBlock(1),
+        T("C. AMRAP Finisher", 6, wave(0.78, 0.04, 60), amrap("AMRAP Finisher", 6, parts, `6 Minute AMRAP (Hyrox open weights)\n\n10 Wall Balls (10 or 14lbs Balls)\n10 MB Sit-Ups (10 or 14lbs Balls) or GHDs Situps`, Math.floor(done / 2), done % 2, done % 2 ? int(2, 9) : 0)),
+      ];
+    },
+    2: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. Circuit", 20, cycles(20, 40, 0.74, 0.45), generic("Circuit", `20mins - 5 Rounds\n40 sec work - 20 sec rest/transition\nDo a station for 40seconds - then rest/set up for next station in 20 seconds\n\n- MAX Wall Balls (10 or 14lb Ball)\n- MAX Walking Lunges (No weight)\n- MAX Dual DB Push Press (2x 10 - 20lb DBs)\n- MAX Ski Erg or Rower\n\nGoal = constant output each round. aka try to hit the same # of reps /cals each round. Smooth & Constant movement. Should not be an ALL OUT effort.`, [MV.wallBall, MV.lunge, MV.dbPushPress, MV.skiErg], { scoreBy: "reps_desc", result: { reps: Math.round(5 * 4 * (12 + 3 * f) + between(-6, 6)) } })),
+      gapBlock(1),
+      T("B. EMOM5", 15, cycles(3, 200, 0.76, 0.38), generic("EMOM5", `3 Rounds - Every 5 Minutes\nComplete the following then rest in remaining time\n\n300 - 400m Row or Ski\n12-15 Goblet Squats (25 - 55lb DBs)\n8-12 Burpees (in place)`, [MV.row, MV.gobletSquat, MV.burpee])),
+      gapBlock(1),
+      T("C. Partner Finisher", 6, cycles(4, 45, 0.7, 0.45), generic("Partner Finisher", `Partner 1: 12 Wall Balls (Open weight)\nPartner 2: Wall Sit\n\nSwap once Wall Balls are completed\n\nTime Cap: 6 minutes`, [MV.wallBall])),
+    ],
+    3: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. No man left behind", 45, wave(0.72, 0.06, 400), generic("No man left behind", `Run together - split stations however you'd like\n\n800m Run\n- 50 Step Ups (20" box) (2x 15-30lb DBs)\n800m Run\n- 50 Step Ups\n800m Run\n- 100m FC (2x 35-55lb KBs or DBs)\n800m Run\n- 100m FC\n800m Run\n- 50 wall balls (10/14/20lbs)\n800m Run\n- 50 wall balls\n800m Run\n\nTime Cap: 45 minutes`, [MV.run, MV.boxStepUp, MV.farmerCarry, MV.wallBall])),
+    ],
+    4: () => {
+      const parts = [
+        [MV.wallBall, { reps: "20" }],
+        [MV.lunge, { distance: "20", distance_unit: "meters" }],
+        [MV.burpee, { reps: "15" }],
+        [MV.farmerCarry, { distance: "20", distance_unit: "meters" }],
+        [MV.thruster, { reps: "15" }],
+        [MV.skiErg, { distance: "500", distance_unit: "meters" }],
+      ];
+      const done = 6 * 3 + Math.round(3 + 5 * f + between(-1, 1));
+      return [
+        warmUpBlock(date, 10),
+        gapBlock(2),
+        T("A. 32min AMRAP", 30, wave(0.76, 0.05, 400), amrap("32min AMRAP", 30, parts, `AMRAP - 30mins\n\n20 Wall Balls (10/14/20lbs)\n20m Walking Lunges (2x 20-35lbs DB front racked)\n15 Burpees\n20m Farmer Carry (HEAVY aka Hyrox Pro weight + )\n15 DB Thrusters (15-30lb DBs)\n500m Ski / Row\n\nGoal= Consistent output for all 30 minutes.\nRPE: 7/10`, Math.floor(done / 6), done % 6, done % 6 ? int(5, 15) : 0)),
+        gapBlock(2),
+        T("B. Core Finisher", 6, cycles(6, 40, 0.45, 0.3), generic("Core Finisher", `Plank Hold\n40on / 20off\nfor 6mins\n\nTime Cap: 6 minutes`, [MV.plank])),
+      ];
+    },
+    5: () => {
+      const parts = [
+        [MV.row, { distance: "400", distance_unit: "meters" }],
+        [MV.wallBall, { reps: "20" }],
+        [MV.lunge, { distance: "40", distance_unit: "meters" }],
+        [MV.row, { distance: "400", distance_unit: "meters" }],
+        [MV.wallBall, { reps: "20" }],
+        [MV.farmerCarry, { distance: "40", distance_unit: "meters" }],
+      ];
+      const done = 6 * 3 + Math.round(2 + 5 * f + between(-1, 1));
+      return [
+        warmUpBlock(date, 10),
+        gapBlock(2),
+        T("A. 32 Minute AMRAP", 32, wave(0.78, 0.05, 400), amrap("32 Minute AMRAP", 32, parts, `32 Minute AMRAP\n400m Row / Ski (or similar time on the Assault Bike)\n20 Wall Balls (upcoming race weight)\n40m Walking Lunges (no weight)\n400m Row / Ski (or similar time on the Assault Bike)\n20 Wall Balls (upcoming race weight)\n40m Heavy Farmer Carry (Gender PRO weight)\n\nSlightly "harder" than Week 4.\nFocus on QUALITY reps & form. SLOW down a ton, if need be.`, Math.floor(done / 6), done % 6, done % 6 ? int(5, 15) : 0)),
+        gapBlock(6, 0.4),
+      ];
+    },
+    6: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. Race Pace Test", 40, wave(0.8, 0.05, 420), generic("Race Pace Test", `40min - Continuous\n\nFind your target race pace - try and hold it for runs & ergs. For example, my target race pace for runs is 3:50k = 6:10 mile, so I would try and hold that for the runs. CH+ drop to tempo pace here.\n\nUse Ergs as recovery - focus is the runs.\n\n1200m Run\n500m Ski /Row / Equivalent time on Assault Bike\n1000m Run\n500m Ski /Row / Equivalent time on Assault Bike\n800m Run\n20m Burpee Broad Jumps\n\nTime Cap: 40 minutes`, [MV.run, MV.skiErg, MV.burpeeBroadJump])),
+      coolDown,
+    ],
+    7: () => [
+      warmUpBlock(date, 10),
+      gapBlock(2),
+      T("A. Lactic Acid, yum", 45, wave(0.8, 0.05, 400), generic("Lactic Acid, yum", `Big solo effort, 42-45mins working time, no set rest.\nMain focus: Fast runs\n\nPart 1 - 38:00 AMRAP\n- 400m run\n- 30 DB Push Press (2x 10-30lb DBs)\n- 400m run\n- 30 air squats\n- 400m run\n- 30 Push Ups / Pull Ups (chose your split)\n- 400m run\n- 30 (15/15) alternating reverse lunges\n- 400m run\n- 30 butterfly situps\n\nStraight into Part 2 - for time\n- 100 wall balls (20/14/10)\n\nWall Ball Tip: break early and on purpose (4x25 or 5x20); going unbroken and dying at rep 60 is always slower.\n\nTime Cap: 45 minutes`, [MV.run, MV.dbPushPress, MV.airSquat, MV.pushUp, MV.wallBall])),
+    ],
+    8: () => {
+      const station = [
         [MV.run, { distance: "1000", distance_unit: "meters" }],
         [MV.sledPush, { distance: "20", distance_unit: "meters" }],
         [MV.wallBall, { reps: "20" }],
         [MV.lunge, { distance: "20", distance_unit: "meters" }],
         [MV.farmerCarry, { distance: "50", distance_unit: "meters" }],
-      ]
-    : pick([
-        [
-          [MV.skiErg, { distance: "500", distance_unit: "meters" }],
-          [MV.burpeeBroadJump, { distance: "20", distance_unit: "meters" }],
-          [MV.sandbagLunge, { distance: "20", distance_unit: "meters" }],
-        ],
-        [
-          [MV.run, { distance: "800", distance_unit: "meters" }],
-          [MV.sledPull, { distance: "20", distance_unit: "meters" }],
-          [MV.wallBall, { reps: "25" }],
-        ],
-      ]);
-  const describe = ([mv, a]) => (a.reps ? `${a.reps} ${mv.name}s` : `${a.distance}m ${mv.name}`);
-  const description = benchmark
-    ? `40min AMRAP\n\n1000m Run\n20m Sled Push\n20 Wall Balls\n20m Walking Lunges\n50m Farmer Carry\n(all stations @ upcoming race weight)\n\nGoal: Consistent pacing.\nYou should leave feeling like you could complete another round if required.`
-    : `${minutes}min AMRAP\n\n${station.map(describe).join("\n")}\n\nGoal: Hold race pace on every station.`;
-  const score = benchmark ? amrapScore(date) : { rounds: Math.round(minutes / 7 + fitness(date)), partialIndex: 1, partialAmount: int(1, 15) };
-  return {
-    appleType: FST,
-    indoor: true,
-    blocks: [
-      T("Warm Up", 10, ramp(0.12, 0.45), warmUp(pick(WARMUPS))),
-      gapBlock(2),
-      T("A. Main Block", minutes, wave(0.76, 0.06, 420), amrap("Main Block", minutes, station, description, score.rounds, score.partialIndex, score.partialAmount)),
-      T("B. Cool Down", 5, ramp(0.35, 0.12), generic("Cool Down", "5mins easy on Row/ski/bike", [MV.row])),
-    ],
+      ];
+      const description = `40min AMRAP\n\n1000m Run\n20m Sled Push\n20 Wall Balls\n20m Walking Lunges\n50m Farmer Carry\n(all stations @ upcoming race weight)\n\nGoal: Consistent pacing.\nYou should leave feeling like you could complete another round if required.`;
+      const score = amrapScore(date);
+      logBlock(date, "amrap40", Math.round((score.rounds + score.partialIndex / 5) * 10) / 10);
+      return [
+        warmUpBlock(date, 10),
+        gapBlock(2),
+        T("A. Main Block", 40, wave(0.76, 0.06, 420), amrap("Main Block", 40, station, description, score.rounds, score.partialIndex, score.partialAmount)),
+        coolDown,
+      ];
+    },
   };
+  return classPlan(plans[week]());
 }
 
 // ---------- Run Club programming (the track) ----------
@@ -793,11 +1078,11 @@ const STREAK = { from: "2026-05-25", weeks: 14 }; // longest run of 4+ session w
 const streakWeeks = new Set(Array.from({ length: STREAK.weeks }, (_, i) => weekIndexOf(STREAK.from) + i));
 const TT_STANDOUT = { date: "2026-04-16", seconds: 1135 };
 const DEADLIFT_DECOY = { date: "2025-11-17", lbs: 295 };
-const DEADLIFT_SHORT_TREND = { from: "2025-04-07", to: "2025-04-21" };
-const DEADLIFT_PLATEAU = { from: "2025-09-29", to: "2026-03-23", lbs: 265 };
+const DEADLIFT_SHORT_TREND = { from: "2025-03-24", to: "2025-04-07", lbs: 255 }; // 250 then 255, back to 245
+const DEADLIFT_PLATEAU = { from: "2025-11-03", to: "2026-03-09", lbs: 265, breakDate: "2026-04-20", breakLbs: 275 }; // blocks 7–9
 const WALL_BALL_NOTES = new Map([
   ["2026-03-23", "Wall balls broke me again in Houston. Three sets of no-reps."],
-  ["2026-05-20", "Wall balls fell apart in round 5."],
+  ["2026-06-17", "Wall balls fell apart in round 5."],
   ["2026-09-21", "Wall balls unbroken in Dallas. Finally."],
 ]);
 const PLANTED_NOTES = new Map([[FIRST_DAY_BACK, "First day back. Slow."], ...WALL_BALL_NOTES]);
@@ -815,18 +1100,6 @@ const NOTE_POOL = [
   "Held race pace on the runs.",
   "Lunges were the limiter.",
 ];
-
-function deadliftLoad(date) {
-  if (date === DEADLIFT_DECOY.date) return DEADLIFT_DECOY.lbs;
-  if (date >= DEADLIFT_SHORT_TREND.from && date <= DEADLIFT_SHORT_TREND.to) return 255; // decoy: a three-week bump inside the noise band
-  if (date < "2025-06-09") return 235 + 5 * Math.min(3, Math.floor(weekIndexOf(date) / 8));
-  const comeback = { "2025-07-07": 225, "2025-07-14": 235, "2025-07-21": 245, "2025-07-28": 250 };
-  if (date < "2025-08-04") return comeback[date] ?? 225;
-  if (date < DEADLIFT_PLATEAU.from) return 255 + 5 * Math.floor((Date.parse(date) - Date.parse("2025-08-04")) / (28 * DAY_MS));
-  if (date <= DEADLIFT_PLATEAU.to) return DEADLIFT_PLATEAU.lbs; // the plateau
-  if (date < "2026-06-01") return 275;
-  return 285;
-}
 
 // 40-min AMRAP: rounds of (1k run + four stations). About 5 rounds is a strong score.
 function amrapScore(date) {
@@ -864,10 +1137,11 @@ function forcedDays(mon) {
   for (const [day, d] of [["mon", 0], ["tue", 1], ["wed", 2], ["thu", 3], ["fri", 4]]) {
     const date = addDays(mon, d);
     if (PLANTED_NOTES.has(date) || date === DEADLIFT_DECOY.date || COMEBACK_MONDAYS.includes(date) || date === TT_STANDOUT.date) critical.push(day);
-    if (day === "mon" && date >= DEADLIFT_PLATEAU.from && date <= addDays(DEADLIFT_PLATEAU.to, 7)) critical.push(day);
+    if (day === "mon" && isDeadliftBenchmark(date)) critical.push(day); // every deadlift 4x4, so the storylines hold
     if (day === "thu" && isTimeTrialDay(date)) wanted.push(day);
     if (day === "tue" && weekIndexOf(date) % 2 === 0) wanted.push(day);
-    if (day === "fri" && weekIndexOf(date) % 4 === 1) wanted.push(day);
+    if (day === "fri" && blockOf(date).week === 8) wanted.push(day);
+    if (day === "wed" && [6, 8].includes(blockOf(date).week)) wanted.push(day);
   }
   return [...new Set([...critical, ...wanted])];
 }
@@ -1163,6 +1437,14 @@ const raceFacts = RACES.map((r) => {
   const res = hyroxResults.find((x) => x.event.date === r.date);
   return { date: r.date, event: res.event.name, seconds: r.total, time: res.overall.time, rankAgeGroup: r.ag[0] };
 });
+// Club Hybrid's block calendar. WodUp has no block or week field, so the app needs this from
+// the gym or the athlete; it is ground truth here.
+const blocks = Array.from({ length: BLOCK_COUNT }, (_, i) => ({
+  block: i + 1,
+  from: blockStart(i + 1),
+  to: addDays(blockStart(i + 1), BLOCK_WEEKS * 7 - 1),
+}));
+expected.blocks = blocks;
 expected.storylines = [
   { id: "hyrox_sub_115", angles: ["rematch", "scoped_best"], from: RACES[0].date, to: RACES[3].date,
     facts: { races: raceFacts, best: raceFacts[3], note: { date: "2026-09-21", text: WALL_BALL_NOTES.get("2026-09-21") } } },
@@ -1170,8 +1452,8 @@ expected.storylines = [
     facts: { before: raceFacts[1], setback: raceFacts[2], after: raceFacts[3] } },
   { id: "summer_gap", angles: ["comeback", "own_words"], from: GAP.from, to: "2025-09-01",
     facts: { gapStart: GAP.from, gapEnd: GAP.to, days: 27, preGapDeadliftLbs: 250, returnToLevelDate: "2025-07-28", weeksToReturn: 3, firstNote: { date: FIRST_DAY_BACK, text: "First day back. Slow." } } },
-  { id: "deadlift_plateau", angles: ["plateau_broken"], from: DEADLIFT_PLATEAU.from, to: "2026-03-30",
-    facts: { plateauLbs: DEADLIFT_PLATEAU.lbs, breakDate: "2026-03-30", breakLbs: 275 } },
+  { id: "deadlift_plateau", angles: ["plateau_broken"], from: DEADLIFT_PLATEAU.from, to: DEADLIFT_PLATEAU.breakDate,
+    facts: { plateauLbs: DEADLIFT_PLATEAU.lbs, blocks: [7, 8, 9], breakDate: DEADLIFT_PLATEAU.breakDate, breakLbs: DEADLIFT_PLATEAU.breakLbs } },
   { id: "long_streak", angles: ["streak"], from: STREAK.from, to: addDays(STREAK.from, STREAK.weeks * 7 - 1),
     facts: { weeks: STREAK.weeks, threshold: 4 } },
   { id: "track_less_strain", angles: ["same_work_less_strain"], from: matched800s[0].date, to: matched800s.at(-1).date,
@@ -1184,10 +1466,14 @@ expected.storylines = [
   { id: "time_trial_standout", angles: ["standout"], from: TT_STANDOUT.date, to: "2026-05-07",
     facts: { date: TT_STANDOUT.date, seconds: TT_STANDOUT.seconds, display: clock(TT_STANDOUT.seconds) } },
 ];
+expected.storylines.push({
+  id: "block_build", angles: ["block_progress", "same_work_less_strain"], from: FROM, to: expected.window.to,
+  facts: { blockWeeks: BLOCK_WEEKS, blocks: blocks.map((b) => ({ ...b, ...blockLog.get(b.block) })) },
+});
 expected.decoys = [
   { id: "single_great_day", from: DEADLIFT_DECOY.date, to: DEADLIFT_DECOY.date, mustNotFire: ["rematch", "plateauBroken"],
     facts: { deadliftLbs: DEADLIFT_DECOY.lbs } },
-  { id: "short_trend", from: DEADLIFT_SHORT_TREND.from, to: DEADLIFT_SHORT_TREND.to, mustNotFire: ["plateauBroken"], facts: { deadliftLbs: 255 } },
+  { id: "short_trend", from: DEADLIFT_SHORT_TREND.from, to: DEADLIFT_SHORT_TREND.to, mustNotFire: ["plateauBroken"], facts: { deadliftLbs: DEADLIFT_SHORT_TREND.lbs } },
 ];
 
 expected.notes = {
@@ -1195,6 +1481,7 @@ expected.notes = {
   appleWorkoutKey: "Apple exports have no workout UUID; workouts are keyed as sourceName|type|startDate.",
   wodupOrder: "training_sessions are newest first, as assumed for the real endpoint.",
   timelines: "True block times for every watch workout, to score the timeline's block matching.",
+  blocks: "Club Hybrid runs 8-week blocks on the gym's calendar. WodUp carries no block or week field; this calendar is ground truth.",
   hyrox: "HYROX has no public API; results copy the fields of results.hyrox.com. waveStart is an assumption.",
 };
 
