@@ -8,7 +8,8 @@ describe("time zone picker helpers", () => {
   it("labels offsets with a true minus sign and follows daylight saving", () => {
     expect(offsetLabel("America/Chicago", WINTER)).toBe("GMT−6");
     expect(offsetLabel("America/Chicago", SUMMER)).toBe("GMT−5");
-    expect(offsetLabel("Europe/London", WINTER)).toBe("GMT");
+    expect(offsetLabel("Europe/London", WINTER)).toBe("GMT+0");
+    expect(offsetLabel("UTC", SUMMER)).toBe("GMT+0");
     expect(offsetLabel("Europe/London", SUMMER)).toBe("GMT+1");
   });
 
@@ -24,7 +25,7 @@ describe("time zone picker helpers", () => {
 
   it("names zones generically, falling back to the offset", () => {
     expect(zoneName("America/Chicago", SUMMER)).toBe("Central Time");
-    expect(zoneName("UTC", WINTER)).toMatch(/^(Coordinated Universal Time|GMT)$/);
+    expect(zoneName("UTC", WINTER)).toMatch(/^(Coordinated Universal Time|GMT\+0)$/);
   });
 
   it("shows local time in the zone", () => {
@@ -33,7 +34,7 @@ describe("time zone picker helpers", () => {
   });
 
   it("degrades instead of throwing on an unknown zone", () => {
-    expect(offsetLabel("Not/AZone", WINTER)).toBe("GMT");
+    expect(offsetLabel("Not/AZone", WINTER)).toBe("GMT+0");
     expect(offsetMinutes("Not/AZone", WINTER)).toBe(0);
     expect(localTime("Not/AZone", WINTER)).toBe("");
   });

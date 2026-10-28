@@ -130,8 +130,11 @@ function part(id: string, timeZoneName: Intl.DateTimeFormatOptions["timeZoneName
   }
 }
 
-/** "GMT−5", "GMT+5:30", "GMT" — with a true minus sign for typographic alignment. */
-export const offsetLabel = (id: string, at = new Date()) => part(id, "shortOffset", at).replace("-", "−") || "GMT";
+/** "GMT−5", "GMT+5:30", "GMT+0" — with a true minus sign for typographic alignment. ICU versions disagree on "GMT" vs "GMT+0" for zero. */
+export function offsetLabel(id: string, at = new Date()): string {
+  const label = part(id, "shortOffset", at).replace("-", "−");
+  return !label || label === "GMT" ? "GMT+0" : label;
+}
 
 /** "Central Time", "Central European Time". Falls back to the offset when Intl has no generic name. */
 export const zoneName = (id: string, at = new Date()) => {
