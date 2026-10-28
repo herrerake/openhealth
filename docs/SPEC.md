@@ -194,6 +194,8 @@ CREATE TABLE results (id INTEGER PRIMARY KEY, athlete_id TEXT, session_id INT, s
   benchmark TEXT, movement TEXT, scaling TEXT, metric TEXT, value REAL, unit TEXT, local_date TEXT);
 CREATE TABLE measurements (id INTEGER PRIMARY KEY, athlete_id TEXT, session_id INT, source_record_id INT,
   type TEXT, value REAL, unit TEXT, start_utc TEXT, end_utc TEXT, local_date TEXT);
+  -- type: duration_s|active_kcal|distance_m|hr_avg|hr_max|rhr|hrv_sdnn|sleep_min, and the watch's running form
+  --       run_power_w|run_speed_mps|run_stride_m|run_gct_ms|run_vo_cm (D-045)
 CREATE TABLE notes (id INTEGER PRIMARY KEY, athlete_id TEXT, session_id INT, source_record_id INT, local_date TEXT, text TEXT);
 CREATE TABLE conflicts (id INTEGER PRIMARY KEY, athlete_id TEXT, session_id INT, field TEXT, values_json TEXT,
   chosen TEXT, resolved_by TEXT);   -- rule|athlete
@@ -328,6 +330,7 @@ The ⓘ on every tile renders `calc`.
 | `heatmap_52w` | Sessions per local date for the last 52 weeks. Days with **no records from any source** are styled as gaps, distinct from zero-session days that do have watch data. Context: sessions this year, late cancels. |
 | `recent_sessions` | The last 5 sessions: the primary result line, HR avg, active kcal, and source badges. |
 | `training_mix` | Share of session minutes by category over the last 8 weeks |
+| `running_economy` | Steady runs in the last 26 weeks (D-045): run sessions outside a class or race, 20 minutes or longer, with no benchmark result. One point per run for meters per heartbeat, pace, ground contact, vertical ratio, vertical oscillation, stride length and power. Each stat compares the mean of the latest 4 steady runs with the first 4 in the window, and says which direction is better (none for stride and power). Display: meters per heartbeat. |
 | `stories_placeholder` | A static card until Phase C |
 
 ### 8.2.1 Session timeline (D-038)
@@ -340,6 +343,8 @@ The ⓘ on every tile renders `calc`.
 | Track (Outdoor Run with segments) | The watch's segment markers; hard segments are the work, named from WodUp ("Rep 3", "5k Time Trial"), easy ones are warm-up, recovery, cool-down | `watch_segments` | `watch` |
 | Club Hybrid class | WodUp blocks in order ("Warm Up", "A. Deadlift", …) matched to boundaries code finds in the heart rate | `duration_match` or `ai_match` | `estimated` |
 | No watch workout | The WodUp plan without times | `none` | — |
+
+When the watch recorded running form, the response adds `running` (D-045): the watch's averages for power, speed, stride length, ground contact and vertical oscillation (`src/core/running.ts`), plus distance, pace, vertical ratio (oscillation ÷ stride) and meters per heartbeat (distance ÷ (minutes × the `hr_aggregate` average)). On race day `wholeRace` is true and the distance-based figures are null, because indoor GPS distance is unreliable (D-037). The page shows these as a "Running form" card under the heart-rate chart.
 
 Class matching, step by step (`src/core/timeline.ts`):
 
@@ -395,6 +400,7 @@ spoken: string;                // the `speak` tiles' sentences joined, e.g. for 
 | `heatmap_52w` | "You've logged 212 sessions this year." |
 | `recent_sessions` | "Your last session was <primary result line>, on <date>." |
 | `training_mix` | "Over the last 8 weeks, 46% of your 1,240 training minutes were metcon." |
+| `running_economy` | "On your steady runs since 2026-05-02, meters per heartbeat averaged 1.60 over your latest 4 (from 1.46)." (built) |
 | `stories_placeholder` | "Your first story is still being reported." |
 
 Home `speak`: `week_sessions`, `streak`, `rhr_3d`.

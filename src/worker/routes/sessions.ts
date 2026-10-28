@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { formatTime } from "../../core/format";
+import type { AppleWorkoutPayload, HrAggregatePayload } from "../../core/normalize";
+import { metersPerBeat, paceSPerKm, runningForm, verticalRatioPct } from "../../core/running";
 import {
   type HrPoint,
   type TimelineBlock,
@@ -122,6 +124,25 @@ sessions.get("/api/sessions/:sessionKey", requireAthlete, async (c) => {
   });
 });
 
+/**
+ * Distance, pace and running form for a watch run. On race day the watch's indoor distance is
+ * unreliable (D-037), so pace and meters per heartbeat, which depend on it, are left out.
+ */
+function running(p: AppleWorkoutPayload, totalS: number, avgHr: number | null, race: boolean) {
+  const form = runningForm(p.statistics);
+  if (!form) return null;
+  const distanceM = race ? null : (p.totals?.distance_m ?? null);
+  const durationS = p.totals?.duration_s ?? totalS;
+  return {
+    ...form,
+    distanceM,
+    paceSPerKm: distanceM != null ? paceSPerKm(distanceM, durationS) : null,
+    metersPerBeat: distanceM != null && avgHr != null ? metersPerBeat(distanceM, durationS, avgHr) : null,
+    verticalRatioPct: form.verticalOscillationCm != null && form.strideM != null ? verticalRatioPct(form.verticalOscillationCm, form.strideM) : null,
+    wholeRace: race,
+  };
+}
+
 const seconds = (fromUtc: string, toUtc: string) => (Date.parse(toUtc) - Date.parse(fromUtc)) / 1000;
 
 /**
@@ -182,9 +203,13 @@ sessions.get("/api/sessions/:sessionKey/timeline", requireAthlete, async (c) => 
 
   const startUtc = workout.start_utc!;
   const totalS = seconds(startUtc, workout.end_utc!);
-  const series = await c.env.DB.prepare("SELECT payload FROM source_records WHERE athlete_id = ? AND natural_key = ?")
-    .bind(athleteId, `hrs:${workout.natural_key}`)
-    .first<{ payload: string }>();
+  const [series, aggregate] = await Promise.all(
+    ["hrs", "hr"].map((prefix) =>
+      c.env.DB.prepare("SELECT payload FROM source_records WHERE athlete_id = ? AND natural_key = ?")
+        .bind(athleteId, `${prefix}:${workout.natural_key}`)
+        .first<{ payload: string }>(),
+    ),
+  );
   const hr = series ? (JSON.parse(series.payload) as { stepS: number; points: HrPoint[] }) : null;
   const points = hr?.points ?? [];
   const segments = ((json(workout).segments ?? []) as { startUtc: string; seconds: number }[]).map((s) => ({ offsetS: seconds(startUtc, s.startUtc), seconds: s.seconds }));
@@ -218,6 +243,9 @@ sessions.get("/api/sessions/:sessionKey/timeline", requireAthlete, async (c) => 
   }
 
   const whole = hrStats(points, 0, totalS);
+  // The watch's own average, as stored for the dashboard: none when it recorded no samples.
+  const agg = aggregate ? (JSON.parse(aggregate.payload) as HrAggregatePayload) : null;
+  const watchAvgHr = agg && agg.samples > 0 ? agg.avg : null;
   return c.json({
     ...base,
     startUtc,
@@ -225,6 +253,7 @@ sessions.get("/api/sessions/:sessionKey/timeline", requireAthlete, async (c) => 
     hr,
     blocks,
     summary: { minutes: Math.round(totalS / 60), ...whole },
+    running: running(json(workout) as AppleWorkoutPayload, totalS, watchAvgHr, !!race),
     spoken: spokenSummary(blocks, method),
   });
 });
