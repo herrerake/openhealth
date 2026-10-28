@@ -1,6 +1,6 @@
 # OpenHealth
 
-ESPN-style coverage for amateur athletes. OpenHealth pulls an athlete's training data from the apps they already use into one owned history, then builds dashboards and data-backed stories on top. See [docs/PRD.md](docs/PRD.md) and [docs/SPEC.md](docs/SPEC.md).
+ESPN-style coverage for amateur athletes. OpenHealth pulls an athlete's training data from the apps they already use into one owned history, then builds dashboards and data-backed stories on top. The why is in [docs/VISION.md](docs/VISION.md); the what and how are in [docs/PRD.md](docs/PRD.md) and [docs/SPEC.md](docs/SPEC.md).
 
 **Phase A, the data infrastructure:**
 - connectors (WodUp, Mindbody, Apple Health, and demo stubs for Garmin, Oura, WHOOP, HYROX and race results);
