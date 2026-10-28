@@ -130,6 +130,30 @@ describe("Apple Health records", () => {
     expect(m).toEqual(expect.arrayContaining([["duration_s", 1492], ["active_kcal", 251.3], ["distance_m", 5210]]));
   });
 
+  it("yields the watch's running form, converted to m/s, m, ms and cm", () => {
+    const statistics = {
+      HKQuantityTypeIdentifierRunningPower: { average: 219, unit: "W" },
+      HKQuantityTypeIdentifierRunningSpeed: { average: 10.9, unit: "km/hr" },
+      HKQuantityTypeIdentifierRunningStrideLength: { average: 1.06, unit: "m" },
+      HKQuantityTypeIdentifierRunningGroundContactTime: { average: 262, unit: "ms" },
+      HKQuantityTypeIdentifierRunningVerticalOscillation: { average: 9.1, unit: "cm" },
+    };
+    const m = normalize({ ...workout, payload: { ...(workout.payload as object), statistics } }).measurements.map((x) => [x.type, x.value, x.unit]);
+    expect(m).toEqual(
+      expect.arrayContaining([
+        ["run_power_w", 219, "W"],
+        ["run_speed_mps", 3.03, "m/s"],
+        ["run_stride_m", 1.06, "m"],
+        ["run_gct_ms", 262, "ms"],
+        ["run_vo_cm", 9.1, "cm"],
+      ]),
+    );
+  });
+
+  it("yields no running form when the watch recorded none", () => {
+    expect(normalize(workout).measurements.some((x) => x.type.startsWith("run_"))).toBe(false);
+  });
+
   it("yields hr_avg and hr_max from an HR aggregate", () => {
     const agg: StoredSourceRecord = {
       ...workout,

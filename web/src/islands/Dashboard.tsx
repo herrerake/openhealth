@@ -1,5 +1,5 @@
 import { ChevronRightIcon, InfoIcon, MicIcon } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import Band from "./charts/Band";
 import Heatmap, { type HeatDay } from "./charts/Heatmap";
 import MixBar from "./charts/MixBar";
 import Sparkline from "./charts/Sparkline";
+import TrendDots from "./charts/TrendDots";
 import ReviewSheet, { type ReviewItem } from "./ReviewSheet";
 
 interface Envelope {
@@ -37,21 +38,23 @@ const TITLES: Record<string, string> = {
   heatmap_52w: "Last 52 weeks",
   recent_sessions: "Recent sessions",
   training_mix: "Training mix · 8 weeks",
+  running_economy: "Running economy",
   stories_placeholder: "Stories",
 };
 
-// Desktop follows the spec order on a 4-column grid; phones reorder to ask → week → review → records → recent.
+// Desktop follows the spec order on a 4-column grid; phones reorder to ask → week → review → records → running → recent.
 const LAYOUT: Record<string, string> = {
   week_sessions: "order-1",
   review_queue: "order-2 lg:col-span-1",
   record_book: "order-3 sm:col-span-2 lg:col-span-3",
-  recent_sessions: "order-4 sm:col-span-2",
-  streak: "order-5",
-  rhr_3d: "order-6",
-  hrv_3d: "order-7",
-  heatmap_52w: "order-8 sm:col-span-2 lg:col-span-4",
-  training_mix: "order-9",
-  stories_placeholder: "order-10",
+  running_economy: "order-4 sm:col-span-2 lg:col-span-4",
+  recent_sessions: "order-5 sm:col-span-2",
+  streak: "order-6",
+  rhr_3d: "order-7",
+  hrv_3d: "order-8",
+  heatmap_52w: "order-9 sm:col-span-2 lg:col-span-4",
+  training_mix: "order-10",
+  stories_placeholder: "order-11",
 };
 
 const SOURCE_SHORT: Record<string, string> = { mindbody: "MB", wodup: "WU", apple_health: "⌚" };
@@ -216,6 +219,30 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
       );
     case "training_mix":
       return <MixBar shares={t.value} />;
+    case "running_economy":
+      return (
+        <div id="running-economy" className="grid gap-3">
+          <div>
+            <Big>{t.display}</Big>
+            <Context>{t.context}</Context>
+          </div>
+          <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+            {t.value.metrics.map((m: any) => (
+              <div key={m.key} data-testid={`economy-${m.key}`} className="grid gap-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm font-medium">{m.label}</span>
+                  <span className="text-sm font-semibold tabular-nums">{m.nowDisplay}</span>
+                </div>
+                <TrendDots points={m.series.map((p: any) => p.value)} invert={m.better === "lower"} label={m.label} />
+                <Context>
+                  {m.thenDisplay != null ? `was ${m.thenDisplay}` : "one run so far"}
+                  {m.better ? ` · ${m.better} is better` : ""}
+                </Context>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
     default:
       return (
         <>
@@ -243,6 +270,13 @@ export default function Dashboard() {
       .catch((e) => !onUnauthorized(e) && setLoadFailed(true));
   }, []);
   useEffect(load, [load]);
+  // Tiles render after load, so a link to one (/dashboard#running-economy) scrolls once they first exist, not on every reload.
+  const scrolled = useRef(false);
+  useEffect(() => {
+    if (!data || scrolled.current) return;
+    scrolled.current = true;
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: "start" });
+  }, [data]);
 
   if (loadFailed)
     return (

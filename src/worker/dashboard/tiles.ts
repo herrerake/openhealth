@@ -1,4 +1,5 @@
 import { formatLoad, formatPercent, formatRounds, formatTime } from "../../core/format";
+import { runningEconomy } from "./runningEconomy";
 import type { TileEnvelope, TileType } from "./spec";
 
 // Every tile is computed from the athlete's current reconcile generation, as of one local day,
@@ -548,6 +549,8 @@ export async function computeTile(type: TileType, ctx: TileContext): Promise<Til
       return heatmap(ctx);
     case "review_queue":
       return reviewQueue(ctx);
+    case "running_economy":
+      return runningEconomy(ctx);
     case "stories_placeholder":
       return storiesPlaceholder();
   }

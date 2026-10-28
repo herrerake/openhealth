@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTimeline, onUnauthorized, type Timeline, type TimelineBlock } from "@/lib/api";
 import { useWidth } from "@/lib/useWidth";
 import { cn } from "@/lib/utils";
+import { formatPace } from "../../../src/core/running";
+import RunningFormCard from "./RunningFormCard";
 
 // Layout A (D-038): the whole session as one heart-rate line, each block shaded over its stretch,
 // with a table of the same blocks underneath. Hovering either highlights both.
@@ -177,6 +179,8 @@ export default function SessionTimeline() {
         {t.summary && (
           <p className="text-sm">
             {t.summary.minutes} min
+            {t.running?.distanceM != null ? ` · ${(t.running.distanceM / 1000).toFixed(2)} km` : ""}
+            {t.running?.paceSPerKm != null ? ` · ${formatPace(t.running.paceSPerKm)}` : ""}
             {t.summary.avgHr != null ? ` · avg ${t.summary.avgHr} bpm · peak ${t.summary.maxHr}` : ""}
           </p>
         )}
@@ -200,6 +204,8 @@ export default function SessionTimeline() {
           </p>
         </CardContent>
       </Card>
+
+      {t.running && <RunningFormCard running={t.running} trended={t.kind === "run"} />}
 
       <Card className="gap-1">
         <CardHeader>
