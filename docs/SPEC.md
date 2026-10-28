@@ -333,6 +333,7 @@ The ⓘ on every tile renders `calc`.
 | `recent_sessions` | The last 5 sessions: the primary result line, HR avg, active kcal, and source badges. |
 | `training_mix` | Share of session minutes by category over the last 8 weeks |
 | `running_economy` | Steady runs in the last 26 weeks (D-045): run sessions outside a class or race, 20 minutes or longer, with no benchmark result. One point per run for meters per heartbeat, pace, ground contact, vertical ratio, vertical oscillation, stride length and power. Each stat compares the mean of the latest 4 steady runs with the first 4 in the window, and says which direction is better (none for stride and power). Display: meters per heartbeat. |
+| `block_progress` | Progress through the gym's training blocks (D-048). The block calendar is the gym's (Club Hybrid: 8-week blocks from 2024-10-28, `src/core/blocks.ts`); each result from that program's classes is placed in a block and week by its class date. Repeated sessions (deadlift 4x4, Threshold Intervals by reps, the 40-min AMRAP) are matched on result fields; a session's weeks are the weeks it landed in during at least two blocks. Shows "Week N of 8, Block B", the current block's repeats week against week (with the session timeline's average heart rate over that part of the class for Threshold Intervals and the AMRAP), and each repeat's last template week block over block. Display: "Week 8 of 8, Block 13". |
 | `stories_placeholder` | A static card until Phase C |
 
 ### 8.2.1 Session timeline (D-038)
@@ -402,6 +403,7 @@ spoken: string;                // the `speak` tiles' sentences joined, e.g. for 
 | `heatmap_52w` | "You've logged 212 sessions this year." |
 | `recent_sessions` | "Your last session was <primary result line>, on <date>." |
 | `training_mix` | "Over the last 8 weeks, 46% of your 1,240 training minutes were metcon." |
+| `block_progress` | The newest repeat this block against its earlier week, or the same week last block: "In week 8 of 8, block 13, you logged 193 reps on Threshold Intervals, against 190 reps in week 6." (built) |
 | `running_economy` | "On your steady runs since 2026-05-02, meters per heartbeat averaged 1.60 over your latest 4 (from 1.46)." (built) |
 | `stories_placeholder` | "Your first story is still being reported." |
 

@@ -1,4 +1,6 @@
 import { formatLoad, formatPercent, formatRounds, formatTime } from "../../core/format";
+import type { Env } from "../env";
+import { blockProgress } from "./blockProgress";
 import { runningEconomy } from "./runningEconomy";
 import type { TileEnvelope, TileType } from "./spec";
 
@@ -6,6 +8,8 @@ import type { TileEnvelope, TileType } from "./spec";
 // and says how it was calculated. SQL does the filtering; JS only buckets and formats.
 
 export interface TileContext {
+  /** For tiles that read a session timeline (heart rate per class block). */
+  env: Pick<Env, "DB" | "RAW" | "ANTHROPIC_API_KEY" | "SITE_TZ">;
   db: D1Database;
   athleteId: string;
   asOf: string;
@@ -551,6 +555,8 @@ export async function computeTile(type: TileType, ctx: TileContext): Promise<Til
       return reviewQueue(ctx);
     case "running_economy":
       return runningEconomy(ctx);
+    case "block_progress":
+      return blockProgress(ctx);
     case "stories_placeholder":
       return storiesPlaceholder();
   }

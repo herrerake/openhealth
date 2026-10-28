@@ -9,6 +9,7 @@ export type TileType =
   | "recent_sessions"
   | "training_mix"
   | "running_economy"
+  | "block_progress"
   | "stories_placeholder";
 
 export interface TileEnvelope<V = unknown> {
@@ -40,6 +41,7 @@ export const HOME_SPEC: DashboardSpec = {
     { type: "rhr_3d", size: "s" },
     { type: "hrv_3d", size: "s" },
     { type: "record_book", size: "l" },
+    { type: "block_progress", size: "l" },
     { type: "review_queue", size: "m" },
     { type: "running_economy", size: "l" },
     { type: "heatmap_52w", size: "l" },

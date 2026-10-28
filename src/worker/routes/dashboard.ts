@@ -10,7 +10,7 @@ export const dashboard = new Hono<AppEnv>();
 
 async function context(c: { env: AppEnv["Bindings"]; var: { athleteId: string }; req: { query(k: string): string | undefined } }): Promise<TileContext> {
   const { asOf, tz } = await resolveAsOf(c.env, c.env.DB, c.var.athleteId, c.req.query("asOf"));
-  return { db: c.env.DB, athleteId: c.var.athleteId, asOf, tz, generation: await currentGeneration(c.env.DB, c.var.athleteId) };
+  return { env: c.env, db: c.env.DB, athleteId: c.var.athleteId, asOf, tz, generation: await currentGeneration(c.env.DB, c.var.athleteId) };
 }
 
 dashboard.get("/api/dashboards/home", requireAthlete, async (c) => {

@@ -2,7 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 // End-to-end tests run against `wrangler dev` serving the built Astro site, with an isolated
 // local D1/R2 state in .wrangler/e2e (migrated and seeded by global-setup.ts).
-const PORT = 8788;
+// E2E_PORT moves it off 8788 when another local server already holds that port (it would be reused).
+const PORT = Number(process.env.E2E_PORT ?? 8788);
 
 export default defineConfig({
   testDir: ".",

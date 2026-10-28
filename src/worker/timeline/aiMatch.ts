@@ -31,13 +31,17 @@ export function matchPrompt(planned: PlannedBlock[], candidates: Candidate[], to
   return `Workout length: ${mmss(totalS)}.\n\nBlocks:\n${blocks}\n\nCandidate boundaries:\n${cands}\n\nReturn ${planned.length - 1} ids.`;
 }
 
-/** Claude's choice of block starts, or null when there's no key, the call fails, or the answer doesn't check out. */
+/**
+ * Claude's choice of block starts, or null when there's no key, the call fails, or the answer doesn't check out.
+ * With `call: false` only a cached answer is used.
+ */
 export async function aiMatch(
   env: { ANTHROPIC_API_KEY?: string; RAW: R2Bucket },
   cacheKey: string,
   planned: PlannedBlock[],
   candidates: Candidate[],
   totalS: number,
+  { call = true }: { call?: boolean } = {},
 ): Promise<number[] | null> {
   if (!env.ANTHROPIC_API_KEY || planned.length < 2) return null;
   const key = `timeline/ai/${cacheKey}`;
@@ -46,6 +50,7 @@ export async function aiMatch(
     const starts = (await cached.json<{ starts: unknown }>()).starts;
     return validStarts(starts, planned, candidates) ? starts : null;
   }
+  if (!call) return null;
   try {
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
     const response = await client.beta.messages.create({
