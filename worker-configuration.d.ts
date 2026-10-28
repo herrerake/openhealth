@@ -6,6 +6,7 @@ interface __BaseEnv_Env {
 	DB: D1Database;
 	SITE_TZ: string;
 	PROVIDER_MODE: string;
+	DEMO_EMAIL: string;
 	AthleteAgent: DurableObjectNamespace<import("./src/worker/index").AthleteAgent>;
 }
 declare namespace Cloudflare {
@@ -20,7 +21,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "SITE_TZ" | "PROVIDER_MODE">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "SITE_TZ" | "PROVIDER_MODE" | "DEMO_EMAIL">> {}
 }
 declare module "*.txt" {
 	const value: string;

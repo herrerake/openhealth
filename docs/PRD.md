@@ -3,7 +3,7 @@
 Version 2.0 · 2026-10-27 · Status: draft for review
 Supersedes v1.0. v1's data and ownership principles carry forward (§4). Its scope is replaced.
 
-Related: [SPEC](SPEC.md) · [Story Playbook](STORY-PLAYBOOK.md) · [Decisions](DECISIONS.md) · [Fixtures](../fixtures/README.md)
+Related: [Vision](VISION.md) · [SPEC](SPEC.md) · [Story Playbook](STORY-PLAYBOOK.md) · [Decisions](DECISIONS.md) · [Fixtures](../fixtures/README.md)
 
 ## 1. Vision
 
@@ -82,7 +82,7 @@ See SPEC §0.
 
 **The moment:** a 45-second vertical video story about a synthetic athlete, generated end to end from two years of synthetic data. Every number in it is traceable to a source record.
 
-**Demo athlete:** Alex Rivera (fictional), a CrossFit athlete at a gym that uses Mindbody for bookings and WodUp for programming, wearing an Apple Watch.
+**Demo athlete:** Hyrox Henry (Henry Walsh, fictional; D-034), an Austin athlete training for HYROX. He takes Club Hybrid three mornings a week (booked in Mindbody, programmed in WodUp), runs at the track twice a week, wears an Apple Watch, and races HYROX every March and September.
 
 **Video style:** Hybrid (Decision D-007). A broadcast graphics package carries the facts. AI-generated footage and an AI voiceover set the mood.
 

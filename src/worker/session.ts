@@ -1,4 +1,5 @@
-import { getCookie } from "hono/cookie";
+import type { Context } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import type { AppEnv } from "./env";
 
@@ -29,6 +30,26 @@ export async function verifySession(value: string | undefined, secret: string): 
   let diff = 0;
   for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
   return diff === 0 ? athleteId : null;
+}
+
+/** Signs the athlete in for this browser. */
+export async function startSession(c: Context<AppEnv>, athleteId: string): Promise<void> {
+  setCookie(c, SESSION_COOKIE, await signSession(athleteId, c.env.SESSION_SECRET), {
+    httpOnly: true,
+    sameSite: "Lax",
+    path: "/",
+    secure: new URL(c.req.url).protocol === "https:",
+  });
+}
+
+export const endSession = (c: Context<AppEnv>) => deleteCookie(c, SESSION_COOKIE, { path: "/" });
+
+/** Compares two secrets without leaking where they differ: HMAC both, then compare equal-length digests. */
+export async function secretsEqual(given: string, expected: string, key: string): Promise<boolean> {
+  const [a, b] = await Promise.all([hmac(given, key), hmac(expected, key)]);
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 export const requireAthlete = createMiddleware<AppEnv>(async (c, next) => {

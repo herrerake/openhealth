@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getDashboard, getMe, getProviders, isConnected, type Me, onUnauthorized, type Provider } from "@/lib/api";
-import { formatLoad, formatSleep, formatTime } from "@/lib/format";
+import { formatLoad, formatRounds, formatSleep, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Band from "./charts/Band";
 import Heatmap, { type HeatDay } from "./charts/Heatmap";
@@ -138,7 +138,7 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
           <Context>{t.context}</Context>
           <div className="divide-y">
             {t.value.map((r: any) => {
-              const fmt = (v: number) => (r.unit === "s" ? formatTime(v) : formatLoad(v));
+              const fmt = (v: number) => (r.unit === "s" ? formatTime(v) : r.unit === "rounds" ? formatRounds(v) : formatLoad(v));
               return (
                 <div key={r.benchmark} data-testid={`record-${r.benchmark}`} className="flex items-center gap-3 py-2 text-sm">
                   <span className="min-w-0 flex-1 truncate font-medium sm:w-32 sm:flex-none">{r.label}</span>
@@ -184,9 +184,13 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
         <div className="divide-y">
           {t.value.map((s: any) => (
             <div key={s.sessionKey} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
-              <span className="w-full text-muted-foreground sm:w-40 sm:shrink-0 sm:text-foreground">
+              <a
+                href={`/session/?key=${encodeURIComponent(s.sessionKey)}`}
+                data-testid={`session-link-${s.sessionKey}`}
+                className="w-full text-muted-foreground underline-offset-4 hover:underline sm:w-40 sm:shrink-0 sm:text-foreground"
+              >
                 {shortDate(s.localDate)} · {s.title}
-              </span>
+              </a>
               <span className="flex-1 font-medium">{s.primary}</span>
               <span className="text-xs text-muted-foreground">
                 {s.hrAvg != null ? `HR ${Math.round(s.hrAvg)}` : ""}

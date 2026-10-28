@@ -1,5 +1,7 @@
 # OpenHealth — Story Engine Specification (Phase C)
 
+> The examples below still use the retired CrossFit athlete (Fran, squat, 2k row). The demo athlete is now Hyrox Henry; his storylines are in Playbook §8 and `fixtures/README.md` (D-034, D-035).
+
 Version 0.1 · 2026-10-27 · Status: draft, deferred until Phases A and B ship
 Companion to [SPEC](SPEC.md) §11. It implements PRD H3–H10 and follows the [Story Playbook](STORY-PLAYBOOK.md).
 It reads from the D1 schema in SPEC §5.

@@ -1,5 +1,5 @@
 ---
-import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import "../styles/globals.css";
 
 interface Props {
@@ -7,8 +7,13 @@ interface Props {
   wide?: boolean;
   /** Width of the main column; onboarding uses a narrow, centered form column. */
   narrow?: boolean;
+  /** Full-bleed main for the marketing pages, which lay out their own sections. */
+  full?: boolean;
+  /** Shows "Log out" in the header (the app pages behind log-in). */
+  signedIn?: boolean;
+  description?: string;
 }
-const { title, wide = false, narrow = false } = Astro.props;
+const { title, wide = false, narrow = false, full = false, signedIn = false, description } = Astro.props;
 const THEMES = [
   { value: "system", label: "System theme", Icon: MonitorIcon },
   { value: "light", label: "Light theme", Icon: SunIcon },
@@ -23,6 +28,7 @@ const THEMES = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#fafaf8" />
     <title>{title} · OpenHealth</title>
+    {description && <meta name="description" content={description} />}
     <script is:inline>
       // Runs before paint so a saved theme never flashes. "system" follows the OS and keeps following it.
       (() => {
@@ -56,6 +62,17 @@ const THEMES = [
         </a>
         <div class="flex items-center gap-4">
           <slot name="header" />
+          {
+            signedIn && (
+              <button
+                type="button"
+                data-logout
+                class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 rounded-md text-xs font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <LogOutIcon className="size-3.5" aria-hidden="true" /> Log out
+              </button>
+            )
+          }
           <div role="radiogroup" aria-label="Theme" class="flex items-center gap-0.5 rounded-full border bg-card p-0.5 shadow-xs" data-theme-switch>
             {
               THEMES.map(({ value, label, Icon }) => (
@@ -76,7 +93,13 @@ const THEMES = [
         </div>
       </div>
     </header>
-    <main class:list={["mx-auto w-full flex-1 px-4 sm:px-6", wide ? "max-w-6xl py-8" : narrow ? "max-w-[30rem] py-10 sm:py-16" : "max-w-xl py-8"]}>
+    <main
+      class:list={[
+        "w-full flex-1",
+        !full && "mx-auto px-4 sm:px-6",
+        !full && (wide ? "max-w-6xl py-8" : narrow ? "max-w-[30rem] py-10 sm:py-16" : "max-w-xl py-8"),
+      ]}
+    >
       <slot />
     </main>
     <script>
@@ -110,6 +133,11 @@ const THEMES = [
         });
       });
       sync();
+
+      document.querySelector("[data-logout]")?.addEventListener("click", async () => {
+        await fetch("/api/logout", { method: "POST" }).catch(() => {});
+        location.assign("/");
+      });
     </script>
   </body>
 </html>

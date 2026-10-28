@@ -3,11 +3,11 @@ import { expect } from "vitest";
 
 const cookies = new Map<string, string>();
 
-export async function createAthlete(name = "Alex Rivera"): Promise<string> {
+export async function createAthlete(name = "Henry Walsh"): Promise<string> {
   const r = await SELF.fetch("http://x/api/athletes", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name, primarySport: "crossfit", tz: "America/Los_Angeles" }),
+    body: JSON.stringify({ name, primarySport: "hyrox", tz: "America/Chicago" }),
   });
   const cookie = r.headers.get("set-cookie")!.split(";")[0];
   return cookie;

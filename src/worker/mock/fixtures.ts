@@ -1,6 +1,6 @@
 import type { Env } from "../env";
 
-export type FixtureKey = "wodup/training_sessions.json" | "mindbody/client_visits.json";
+export type FixtureKey = "wodup/training_sessions.json" | "mindbody/client_visits.json" | "hyrox/results.json";
 
 const cache = new Map<FixtureKey, unknown>();
 

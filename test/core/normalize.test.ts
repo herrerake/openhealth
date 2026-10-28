@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { normalize } from "../../src/core/normalize";
 import type { StoredSourceRecord } from "../../src/core/types";
-import { ensureGenerated, readSessions } from "./fixture-helpers";
+import { ensureGenerated, readHyrox, readSessions } from "./fixture-helpers";
 
 let sessions: any[];
 beforeAll(() => {
@@ -26,36 +26,59 @@ const findResult = (date: string, pred: (r: any) => boolean) => {
   return resultRecord(s.results.find(pred), date);
 };
 
+const findAny = (pred: (r: any) => boolean) => {
+  const s = sessions.find((x) => x.wod && x.results.some(pred));
+  return resultRecord(s.results.find(pred), s.wod.occurs_on);
+};
+
 describe("WodUp results", () => {
-  it("tags Fran", () => {
-    const rec = findResult("2026-10-20", (r) => r.type === "FranStyleResult");
+  it("tags the deadlift 4x4 with its load", () => {
+    const rec = findResult("2026-10-19", (r) => r.movements[0]?.name === "Deadlift");
     expect(normalize(rec).results).toEqual([
-      expect.objectContaining({ recordKey: rec.naturalKey, benchmark: "fran", metric: "time_s", value: 261, unit: "s", localDate: "2026-10-20" }),
+      expect.objectContaining({ recordKey: rec.naturalKey, benchmark: "deadlift_4x4", metric: "load_lbs", value: 285, unit: "lbs", localDate: "2026-10-19" }),
     ]);
   });
 
-  it("tags the 2k row", () => {
-    const rec = findResult("2026-10-22", (r) => r.type === "CardioResult");
-    expect(normalize(rec).results[0]).toMatchObject({ benchmark: "row_2k", metric: "time_s", value: 455 });
+  it("keeps other lifts untagged", () => {
+    const rec = findResult("2026-10-19", (r) => r.movements[0]?.name === "Push Press");
+    expect(normalize(rec).results[0]).toMatchObject({ benchmark: null, movement: "Push Press", metric: "load_lbs" });
   });
 
-  it("tags back squat 5x5 with the top load", () => {
-    const rec = findResult("2026-10-19", (r) => r.movements[0]?.name === "Back Squat");
-    expect(normalize(rec).results[0]).toMatchObject({ benchmark: "back_squat_5x5", metric: "load_lbs", value: 245 });
+  it("tags the 5k time trial", () => {
+    const rec = findResult("2026-10-01", (r) => r.prescribed_workout.name === "5k Time Trial");
+    expect(normalize(rec).results[0]).toMatchObject({ benchmark: "run_5k_tt", metric: "time_s", value: rec.payload && (rec.payload as any).details.sets[0].duration });
   });
 
-  it("tags a deadlift single as the 1RM", () => {
-    const rec = findResult("2026-10-22", (r) => r.movements[0]?.name === "Deadlift");
-    expect(normalize(rec).results[0]).toMatchObject({ benchmark: "deadlift_1rm", metric: "load_lbs", value: 385 });
+  it("tags the 40-minute AMRAP with rounds plus the finished share of the next round", () => {
+    const rec = findAny((r) => r.type === "AmrapResult" && r.prescribed_workout.details.duration === 40);
+    const d = (rec.payload as any).details;
+    expect(normalize(rec).results[0]).toMatchObject({ benchmark: "amrap_40", movement: "Main Block", metric: "rounds", value: d.rounds + d.partial_index / 5 });
   });
 
-  it("does not tag a deadlift 3x5 as a 1RM", () => {
-    const rec = findResult("2026-10-15", (r) => r.movements[0]?.name === "Deadlift");
-    expect(normalize(rec).results[0]).toMatchObject({ benchmark: null, movement: "Deadlift", metric: "load_lbs", value: 345 });
+  it("keeps a shorter AMRAP's rounds without a benchmark", () => {
+    const rec = findAny((r) => r.type === "AmrapResult" && r.prescribed_workout.details.duration !== 40);
+    expect(normalize(rec).results[0]).toMatchObject({ benchmark: null, metric: "rounds" });
+  });
+
+  it("scores threshold intervals by max reps", () => {
+    const rec = findAny((r) => r.prescribed_workout.name === "Threshold Intervals");
+    expect(normalize(rec).results[0]).toMatchObject({ movement: "Threshold Intervals", metric: "reps", value: (rec.payload as any).details.reps });
+  });
+
+  it("averages track reps per interval", () => {
+    const rec = findAny((r) => r.type === "CardioIntervalsResult");
+    const sets = (rec.payload as any).details.sets;
+    const avg = Math.round((sets.reduce((a: number, x: any) => a + x.duration, 0) / sets.length) * 10) / 10;
+    expect(normalize(rec).results[0]).toMatchObject({ benchmark: null, metric: "time_s", unit: "s/rep", value: avg });
+  });
+
+  it("yields nothing for a warm-up", () => {
+    const rec = findResult("2026-10-19", (r) => r.type === "WarmUpResult");
+    expect(normalize(rec)).toEqual({ results: [], measurements: [], notes: [] });
   });
 
   it("converts kg and pood loads to lbs", () => {
-    const base = findResult("2026-10-19", (r) => r.movements[0]?.name === "Back Squat");
+    const base = findResult("2026-10-19", (r) => r.movements[0]?.name === "Deadlift");
     const kg = structuredClone(base);
     (kg.payload as any).details.sets = (kg.payload as any).details.sets.map((s: any) => ({ ...s, load: 100, load_unit: "kg" }));
     expect(normalize(kg).results[0].value).toBe(220.5);
@@ -65,13 +88,18 @@ describe("WodUp results", () => {
   });
 
   it("emits the athlete's note verbatim", () => {
-    const rec = findResult("2026-10-20", (r) => r.type === "FranStyleResult");
-    expect(normalize(rec).notes).toEqual([{ recordKey: rec.naturalKey, localDate: "2026-10-20", text: "Unbroken thrusters. Finally." }]);
+    const rec = findResult("2026-09-21", (r) => r.notes === "Wall balls unbroken in Dallas. Finally.");
+    expect(normalize(rec).notes).toEqual([{ recordKey: rec.naturalKey, localDate: "2026-09-21", text: "Wall balls unbroken in Dallas. Finally." }]);
   });
+});
 
-  it("skips an AMRAP with no benchmark but keeps its rounds", () => {
-    const rec = findResult("2026-10-19", (r) => r.type === "AmrapResult");
-    expect(normalize(rec).results[0]).toMatchObject({ benchmark: null, metric: "rounds" });
+describe("HYROX results", () => {
+  it("tags the official finish time", () => {
+    const dallas = readHyrox().results.find((r: any) => r.event.date === "2026-09-19");
+    const rec: StoredSourceRecord = { id: 800, source: "hyrox", kind: "race_result", naturalKey: `race:${dallas.id}`, payload: dallas, startUtc: null, endUtc: null, localDate: "2026-09-19", tz: null };
+    expect(normalize(rec).results).toEqual([
+      expect.objectContaining({ benchmark: "hyrox_total", movement: "HYROX 2026 Dallas", metric: "time_s", value: 4472, localDate: "2026-09-19" }),
+    ]);
   });
 });
 
@@ -80,10 +108,10 @@ describe("Apple Health records", () => {
     id: 900,
     source: "apple_health",
     kind: "workout",
-    naturalKey: "workout:Alex’s Apple Watch|HKWorkoutActivityTypeRunning|2026-10-18 07:30:00 -0700",
+    naturalKey: "workout:Henry’s Apple Watch|HKWorkoutActivityTypeRunning|2026-10-18 07:30:00 -0700",
     payload: {
       workoutActivityType: "HKWorkoutActivityTypeRunning",
-      sourceName: "Alex’s Apple Watch",
+      sourceName: "Henry’s Apple Watch",
       startDate: "2026-10-18 07:30:00 -0700",
       endDate: "2026-10-18 07:54:52 -0700",
       indoor: false,

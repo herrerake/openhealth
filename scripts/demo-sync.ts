@@ -75,22 +75,23 @@ async function uploadApple(): Promise<{ ms: number; records: number; accepted: n
 async function main(): Promise<void> {
   if (existsSync(SESSION_FILE)) cookie = readFileSync(SESSION_FILE, "utf8").trim();
   if (cookie && (await call("/api/me")).ok) {
-    console.log("✓ athlete Alex Rivera (existing)");
+    console.log("✓ athlete Henry Walsh (existing)");
   } else {
     cookie = "";
     const created = await call("/api/athletes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Alex Rivera", primarySport: "crossfit", tz: "America/Los_Angeles" }),
+      body: JSON.stringify({ name: "Henry Walsh", primarySport: "hyrox", tz: "America/Chicago" }),
     });
     if (created.status !== 201) throw new Error(`could not create athlete: HTTP ${created.status} (is wrangler dev running at ${BASE}?)`);
     mkdirSync(join(SESSION_FILE, ".."), { recursive: true });
     writeFileSync(SESSION_FILE, cookie);
-    console.log("✓ athlete Alex Rivera");
+    console.log("✓ athlete Henry Walsh");
   }
 
   await connect("wodup");
   await connect("mindbody");
+  await connect("hyrox");
 
   const apple = await uploadApple();
   console.log(`✓ Apple Health · ${apple.records} records parsed and sent in ${secs(apple.ms)} s · ${apple.accepted} new`);

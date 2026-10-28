@@ -23,12 +23,12 @@ test("sync is disabled until something is connected", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Sync 0 accounts" })).toBeDisabled();
 });
 
-test("stale session lands on onboarding", async ({ page, context }) => {
+test("a stale session is sent to log in", async ({ page, context }) => {
   await context.addCookies([{ name: "oh_session", value: "ath_x.forged", url: "http://localhost:8788" }]);
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/onboarding\/?$/);
   await page.goto("/onboarding/connect");
-  await expect(page).toHaveURL(/\/onboarding\/?$/);
+  await expect(page).toHaveURL(/\/login\/?$/);
+  await page.goto("/dashboard");
+  await expect(page).toHaveURL(/\/login\/?$/);
 });
 
 test("parses the Health export in the browser and uploads records", async ({ page }) => {

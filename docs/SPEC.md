@@ -79,26 +79,20 @@ openhealth/
 
 ## 3. Synthetic data, two years (H1)
 
-Extend `fixtures/generate.mjs`:
+`fixtures/generate.mjs` builds Hyrox Henry (D-034, D-035). `fixtures/README.md` has the full scenario, storylines and edge cases.
 
 - **Window:** 2024-10-28 → 2026-10-25, 104 weeks.
-- **Time zone:** America/Los_Angeles with real DST, using `Intl.DateTimeFormat` offsets. The fixed `-07:00` constant goes away, and each Apple timestamp carries the offset in effect on its date.
-- **Weekly template** as today (Mon/Tue/Thu/Fri 06:00, Sat 09:00, Sun run), with realistic variation:
+- **Time zone:** America/Chicago (Austin) with real DST, using `Intl.DateTimeFormat` offsets. Each Apple timestamp carries the offset in effect on its date.
+- **Weekly template:** Club Hybrid Mon/Wed/Fri 07:00 (strength, threshold intervals, AMRAP; copied from the real WodUp programming), Run Club at the track Tue/Thu 07:00, sometimes an easy Saturday run, with realistic variation:
   - attendance 3–6 sessions/week;
   - holiday dips;
-  - occasional open gym.
-- **Benchmarks:**
-  - Fran about every 10–12 weeks (9 total);
-  - 2k row monthly;
-  - back squat 5x5 weekly in strength cycles;
-  - deadlift heavy days.
-- **Storylines and decoys:** exactly as Playbook §8. Each one is written to `expected.json → storylines[]` and `decoys[]`.
-- **Existing 12 edge cases:** kept in the final 4 weeks. Their reconciliation assertions (sessions, duplicates, conflicts, unmatched visits) still hold.
-- **Benchmark results in those weeks are regenerated** to fit the storylines (D-018):
-  - Fran 4:21 on 2026-10-20 stays as the hero result.
-  - The squat continues from its post-plateau level.
-  - The old `metrics` block is replaced by `storylines[]` facts.
-- **Ranking:** the data is tuned so the Fran rematch ranks first (Phase C).
+  - about one track day in ten exists only on the watch.
+- **Races:** four HYROX Men's Open results (March and September of both years), logged on the watch as Outdoor Run (D-037), in a fourth source shaped like results.hyrox.com (D-036).
+- **Benchmarks:** HYROX finish, 5k time trial (first Thursday of the month), 40-min AMRAP (every fourth Friday), deadlift 4x4, and 6 x 800m @ 3:20 every other Tuesday for matched heart-rate comparisons.
+- **Heart rate follows the blocks:** each workout is a list of blocks with a target effort over time; heart rate chases it with a lag, and one fitness curve drives every benchmark and response. `expected.json → timelines[]` records the true block times so the session timeline can be scored (D-038).
+- **Storylines and decoys:** as Playbook §8. Each one is written to `expected.json → storylines[]` and `decoys[]`.
+- **12 edge cases:** kept in the final 4 weeks, moved onto Henry's week. Their reconciliation assertions (sessions, duplicates, conflicts, unmatched visits) still hold.
+- **Ranking:** the data is tuned so the sub-1:15 HYROX story ranks first (Phase C).
 - **Athlete notes:** written in one consistent voice, including the planted phrases and the prompt-injection note.
 - **Volume:** the Apple HR series uses 30 s spacing for older months to keep `export.xml` under about 40 MB.
 
@@ -138,9 +132,10 @@ interface SourceBatch {
 | WodUp | oauth (demo) | Synthetic fixtures | `GET /mock/wodup/api/public/athletes/{id}/training_sessions`. Basic auth, `limit` ≤ 100, `after_cursor` pagination, newest first. |
 | Mindbody | oauth (demo) | Synthetic fixtures | `GET /mock/mindbody/public/v6/client/clientvisits`. `Api-Key`, `SiteId` and `Authorization` headers; `limit`/`offset` with `PaginationResponse`. |
 | Apple Health | file | Synthetic `export.xml`, or a real export (H11) | None. Parsed in the browser (§4.4). |
-| Garmin, Oura, WHOOP, HYROX, Race results | oauth (demo) | **Stub:** the consent sheet works, and sync returns zero records with "No data in demo" | `GET /mock/{provider}/oauth/*` only |
+| HYROX | oauth (demo) | Synthetic `hyrox/results.json` (D-036) | `GET /mock/hyrox/api/athletes/{id}/results` with a bearer token, all results at once. HYROX has no public API; the shape copies results.hyrox.com. |
+| Garmin, Oura, WHOOP, Race results | oauth (demo) | **Stub:** the consent sheet works, and sync returns zero records with "No data in demo" | `GET /mock/{provider}/oauth/*` only |
 
-All provider tiles are shown and connectable (D-023). The demo connects WodUp, Mindbody and Apple Health.
+All provider tiles are shown and connectable (D-023). The demo connects WodUp, Mindbody, HYROX and Apple Health.
 
 ### 4.3 Demo sign-in (OAuth-shaped)
 
@@ -157,8 +152,10 @@ All provider tiles are shown and connectable (D-023). The demo connects WodUp, M
 - **Emitted records:**
   - `Workout` elements (with their `WorkoutStatistics` and `MetadataEntry` children);
   - daily `RestingHeartRate`, `HeartRateVariabilitySDNN` and `SleepAnalysis`;
-  - per-workout HR aggregates (avg, max, sample count, gaps > 5 min) computed from `HeartRate` samples inside each workout window.
-- **Not sent:** raw HR samples. The file's SHA-256 and the counts are sent, so provenance reads "computed from 212 samples in export <hash>".
+  - per-workout HR aggregates (avg, max, sample count, gaps > 5 min) computed from `HeartRate` samples inside each workout window;
+  - per-workout HR series (`hr_series`): the mean of each 15 seconds inside the workout window, for the session timeline (D-039);
+  - a workout's segment and lap markers (`WorkoutEvent`) in its payload.
+- **Not sent:** raw HR samples, and any heart rate outside a workout. The file's SHA-256 and the counts are sent, so provenance reads "computed from 212 samples in export <hash>".
 - **Transport:** batches of 1,000 records go to `POST /api/connect/apple_health/batches`. Progress is posted to the agent.
 - **Measure:** parse time and records per second, for H12.
 
@@ -179,15 +176,15 @@ CREATE TABLE sync_runs (id TEXT PRIMARY KEY, athlete_id TEXT, provider TEXT, sta
   status TEXT, accepted INT, duplicates INT, rejected INT, duration_ms INT, detail TEXT);
 
 CREATE TABLE source_records (id INTEGER PRIMARY KEY, athlete_id TEXT, source TEXT NOT NULL,
-  kind TEXT NOT NULL,         -- visit|training_session|result|workout|daily_metric|hr_aggregate
+  kind TEXT NOT NULL,         -- visit|training_session|result|workout|daily_metric|hr_aggregate|hr_series|race_result
   natural_key TEXT NOT NULL,  -- see §6.1
   payload TEXT, payload_r2_key TEXT,
   start_utc TEXT, end_utc TEXT, local_date TEXT, tz TEXT, sync_run_id TEXT,
   UNIQUE (athlete_id, source, natural_key));
 
 CREATE TABLE sessions (id INTEGER PRIMARY KEY, athlete_id TEXT, local_date TEXT,
-  kind TEXT,                  -- class|open_gym|run|other
-  category TEXT,              -- strength|metcon|run|row|mixed (training mix)
+  kind TEXT,                  -- class|open_gym|run|race|other
+  category TEXT,              -- strength|metcon|run|row|race|mixed (training mix)
   start_utc TEXT, end_utc TEXT,
   status TEXT,                -- auto_match|review_required|confirmed
   flags TEXT);
@@ -259,7 +256,8 @@ Then, in order:
 1. **Apple dedupe:**
    - Same activity type, |Δstart| ≤ 2 min, |Δend| ≤ 5 min, and a different source means a duplicate.
    - Keep by priority: Apple Watch > other.
-2. **Anchor on Mindbody:**
+2. **Anchor on HYROX results, then Mindbody:**
+   - A HYROX result anchors a `race` session (category `race`). The watch workout overlapping it attaches; official timing wins for times and distances, and a watch distance adds the flag `watch_distance_unreliable_indoors` (D-037). WodUp never attaches to a race.
    - `SignedIn = true` anchors a `class` session.
    - Late cancels and no-shows create no session. They are reported as unmatched.
 3. **Attach Apple workouts:**
@@ -274,7 +272,7 @@ Then, in order:
    - A field reported by two sources (distance, duration) creates a `conflicts` row. Never average.
    - Canonical precedence: device over self-logged (D-010), `resolved_by = rule`.
 7. **Decisions** (merge / split / pick / confirm) are replayed last by `scope_key`, so they survive re-runs.
-8. **Category** for the training mix comes from WodUp result types (Strength → strength; ForTime/Amrap/FranStyle → metcon; Cardio row → row; run → run), with the Apple activity type as fallback.
+8. **Category** for the training mix comes from the first scored WodUp block, skipping warm-ups and cool-downs (Strength → strength; Amrap/Generic/ForTime → metcon; Cardio or CardioIntervals row → row; run → run), with the Apple activity type as fallback. Races are `race`.
 
 **Acceptance:** the final 4 weeks equal today's `expected.json`. Across two years, the planted duplicates, splits, conflicts and gaps are resolved as listed.
 
@@ -325,18 +323,83 @@ The ⓘ on every tile renders `calc`.
 | `week_sessions` | Canonical sessions in the current ISO week (Mon–Sun, athlete time zone). Context: the mean of the previous 12 complete weeks. |
 | `streak` | Consecutive complete weeks with ≥4 sessions, ending last week. The current week is included once it reaches 4. Context: the longest in history. |
 | `rhr_3d` / `hrv_3d` | 3-day rolling mean of the daily values. The normal range is the 90-day mean ± 1 SD, excluding the last 3 days. Context: inside / above / below the range. The HRV tile adds the 7-day sleep average. |
-| `record_book` | Per benchmark (Fran rx, back squat 5x5, deadlift 1RM, 2k row): best (min time / max load), its date, latest, attempt count, a series for the sparkline, and the noise band for timed benchmarks. The header reads "best in your history since <first date>". |
+| `record_book` | Per benchmark (HYROX finish, 5k time trial, 40-min AMRAP in rounds, deadlift 4x4): best (min time / max load), its date, latest, attempt count, a series for the sparkline, and the noise band for timed benchmarks. The header reads "best in your history since <first date>". |
 | `review_queue` | Sessions with `review_required`, unresolved conflicts, and the `logged_hours_later` flag. Each has an action: merge / split / pick / confirm. |
 | `heatmap_52w` | Sessions per local date for the last 52 weeks. Days with **no records from any source** are styled as gaps, distinct from zero-session days that do have watch data. Context: sessions this year, late cancels. |
 | `recent_sessions` | The last 5 sessions: the primary result line, HR avg, active kcal, and source badges. |
 | `training_mix` | Share of session minutes by category over the last 8 weeks |
 | `stories_placeholder` | A static card until Phase C |
 
+### 8.2.1 Session timeline (D-038)
+
+`GET /api/sessions/:key/timeline`, shown at `/session/?key=…` and linked from recent sessions. Layout A: the session's heart rate as one line, each block shaded over its stretch, and a table of the same blocks (time, length, average and peak heart rate, the coach's prescription).
+
+| Session | Where the block edges come from | `method` | Block `source` |
+|---|---|---|---|
+| HYROX race | The official splits laid end to end from the wave start; Roxzone (only a total on the results page) is spread evenly around the stations | `hyrox_splits` | `official` |
+| Track (Outdoor Run with segments) | The watch's segment markers; hard segments are the work, named from WodUp ("Rep 3", "5k Time Trial"), easy ones are warm-up, recovery, cool-down | `watch_segments` | `watch` |
+| Club Hybrid class | WodUp blocks in order ("Warm Up", "A. Deadlift", …) matched to boundaries code finds in the heart rate | `duration_match` or `ai_match` | `estimated` |
+| No watch workout | The WodUp plan without times | `none` | — |
+
+Class matching, step by step (`src/core/timeline.ts`):
+
+1. **Candidates (code):** on the 15-second series (D-039), find dips (rests and transitions), peaks before a sustained drop, and two-minute level shifts. Merge any within 45 s.
+2. **Priors (code):** each block's expected length from its prescription: AMRAP minutes, "6x5min … 2min rest", sets × 3 min, "x3 Rounds", "5mins".
+3. **Match:** with `ANTHROPIC_API_KEY` set, Claude (`claude-opus-5-5`, low effort, JSON output, server-side refusal fallback) picks one candidate id per block start. Its answer is only used if every id exists and the ids increase; it is cached in R2 per workout. Otherwise, or on any failure, a dynamic program picks the candidates that best fit the priors.
+4. **Numbers (code):** block averages, peaks and the `spoken` line ("Your hardest block was D. FC finisher, averaging 118 beats per minute, by estimated block times.") are computed from the series. The model never produces a number or a time.
+
+On the fixtures, the code match puts 84% of class block starts within 2 minutes of the truth (median 45 s); `test/core/timeline.test.ts` holds it there. Dragging a boundary to correct it is not built yet.
+
 ### 8.3 Review actions (B5)
 
 - `POST /api/review/:sessionKey` with `{ action, payload }` writes a `decisions` row (session keys are stable across reconcile generations; ids are not).
 - It re-runs reconcile for that local date and returns the updated session and tiles.
 - Merge, split, pick and confirm are all reversible from the session detail.
+
+### 8.4 Spoken summaries (proposed, D-032, D-033)
+
+Status: proposed, not built. Every view must be answerable in one spoken sentence (VISION §7), so the tile envelope gains one field and the dashboard response gains one headline.
+
+```ts
+interface TileEnvelope<V> {
+  // ...value, display, context, series, calc as in §8.1
+  spoken: string;              // one sentence, e.g. "Your resting heart rate is 55 bpm, inside your normal range of 54–58."
+}
+
+interface DashboardSpec {
+  // ...as in §8.1
+  speak: TileType[];           // tiles that make up the dashboard headline, in order (2–3)
+}
+
+// GET /api/dashboards/:id adds:
+spoken: string;                // the `speak` tiles' sentences joined, e.g. for "show me my week" in the car
+```
+
+**Rules:**
+
+1. **Code writes it.** Each tile function builds `spoken` from a template, using the same values it returns in `value`, `display` and `context`. No model call.
+2. **One sentence, at most 25 words.** Second person, plain words, no reference to anything visual ("as shown", "the green bar").
+3. **Digits, not words.** `spoken` keeps numbers as digits with units, so it can be checked exactly. The D-016 speller (`speak.ts`) renders it for TTS at the voice surface ("55 bpm" → "fifty-five beats per minute").
+4. **Empty tiles say so.** "No resting heart rate data yet."
+5. **Later, the voice layer quotes, it doesn't compute.** A v1 voice agent may pick which sentences to read and connect them with its own words, but the numbers it speaks come from `spoken` unchanged (PRD §4.1).
+
+**Home dashboard templates:**
+
+| Tile | `spoken` |
+|---|---|
+| `week_sessions` | "You've trained 4 times this week; your typical week is 4.2." |
+| `streak` | "You're on a 6-week streak of 4 or more sessions; your longest is 11." |
+| `rhr_3d` / `hrv_3d` | "Your resting heart rate is 55 bpm, inside your normal range of 54–58." |
+| `record_book` | The most recent best: "Your newest record is HYROX in 1:14:32, on 2026-09-19." |
+| `review_queue` | "3 sessions need your review." / "Nothing needs your review." |
+| `heatmap_52w` | "You've logged 212 sessions this year." |
+| `recent_sessions` | "Your last session was <primary result line>, on <date>." |
+| `training_mix` | "Over the last 8 weeks, 46% of your 1,240 training minutes were metcon." |
+| `stories_placeholder` | "Your first story is still being reported." |
+
+Home `speak`: `week_sessions`, `streak`, `rhr_3d`.
+
+**Tests:** every tile on the fixtures returns a non-empty `spoken` of at most 25 words, and every number in it appears in that tile's `value`, `display`, `context` or `series`.
 
 ## 9. API
 
@@ -354,6 +417,7 @@ The ⓘ on every tile renders `calc`.
 | GET | `/api/tiles/:type` | A single tile envelope |
 | GET/POST | `/api/review` · `/api/review/:sessionKey` | Review queue; merge / split / pick (a source, optionally one field) / confirm |
 | GET | `/api/sessions/:sessionKey` | Session detail: sources with summaries, results, measurements, notes, conflicts |
+| GET | `/api/sessions/:sessionKey/timeline` | Heart rate with the session's blocks laid over it (§8.2.1) |
 | GET | `/api/sync/state` | Sync state over HTTP (fallback for the agent WebSocket) |
 | — | `/mock/:provider/*` | Demo providers (OAuth + data endpoints); the consent form POSTs |
 

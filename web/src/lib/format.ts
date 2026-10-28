@@ -1,1 +1,1 @@
-export { formatLoad, formatPercent, formatSleep, formatTime } from "../../../src/core/format";
+export { formatLoad, formatPercent, formatRounds, formatSleep, formatTime } from "../../../src/core/format";

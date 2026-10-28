@@ -1,1 +1,5 @@
 SESSION_SECRET=change-me
+# The demo account's password; the email is DEMO_EMAIL in wrangler.jsonc (D-041).
+DEMO_PASSWORD=change-me-too
+# Optional: lets Claude match class blocks to heart rate on the session timeline (D-038).
+# ANTHROPIC_API_KEY=
