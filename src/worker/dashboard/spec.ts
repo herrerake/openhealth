@@ -8,6 +8,7 @@ export type TileType =
   | "heatmap_52w"
   | "recent_sessions"
   | "training_mix"
+  | "running_economy"
   | "stories_placeholder";
 
 export interface TileEnvelope<V = unknown> {
@@ -16,6 +17,8 @@ export interface TileEnvelope<V = unknown> {
   display: string;
   context: string;
   series?: unknown;
+  /** One sentence for voice surfaces, built by a template in code (D-033). */
+  spoken?: string;
   calc: { description: string; inputs: { sourceRecordIds?: number[]; query?: string }; computedAt: string };
 }
 
@@ -38,6 +41,7 @@ export const HOME_SPEC: DashboardSpec = {
     { type: "hrv_3d", size: "s" },
     { type: "record_book", size: "l" },
     { type: "review_queue", size: "m" },
+    { type: "running_economy", size: "l" },
     { type: "heatmap_52w", size: "l" },
     { type: "recent_sessions", size: "l" },
     { type: "training_mix", size: "m" },

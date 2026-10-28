@@ -83,7 +83,7 @@ jobs:
         run: npx wrangler d1 migrations apply PREVIEW_DB --remote --config wrangler.preview-migrations.jsonc
       - name: Seed the preview bucket
         run: |
-          for key in wodup/training_sessions.json mindbody/client_visits.json; do
+          for key in wodup/training_sessions.json mindbody/client_visits.json hyrox/results.json; do
             npx wrangler r2 object put "openhealth-raw-preview/mock/$key" --file "fixtures/data/$key" --remote
           done
       - run: npm run build:web

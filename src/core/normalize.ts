@@ -1,3 +1,4 @@
+import { runningForm } from "./running";
 import { parseAppleDate } from "./time";
 import type { StoredSourceRecord } from "./types";
 
@@ -18,7 +19,20 @@ export interface ResultRow {
 
 export interface MeasurementRow {
   recordKey: string;
-  type: "hr_avg" | "hr_max" | "active_kcal" | "distance_m" | "duration_s" | "rhr" | "hrv_sdnn" | "sleep_min";
+  type:
+    | "hr_avg"
+    | "hr_max"
+    | "active_kcal"
+    | "distance_m"
+    | "duration_s"
+    | "rhr"
+    | "hrv_sdnn"
+    | "sleep_min"
+    | "run_power_w"
+    | "run_speed_mps"
+    | "run_stride_m"
+    | "run_gct_ms"
+    | "run_vo_cm";
   value: number;
   unit: string;
   startUtc: string | null;
@@ -187,6 +201,14 @@ function appleWorkout(rec: StoredSourceRecord): Normalized {
   m("duration_s", p.totals?.duration_s, "s");
   m("active_kcal", p.totals?.active_kcal, "kcal");
   m("distance_m", p.totals?.distance_m, "m");
+  const form = runningForm(p.statistics);
+  if (form) {
+    m("run_power_w", form.powerW ?? undefined, "W");
+    m("run_speed_mps", form.speedMps ?? undefined, "m/s");
+    m("run_stride_m", form.strideM ?? undefined, "m");
+    m("run_gct_ms", form.groundContactMs ?? undefined, "ms");
+    m("run_vo_cm", form.verticalOscillationCm ?? undefined, "cm");
+  }
   return out;
 }
 

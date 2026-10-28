@@ -57,6 +57,18 @@ export interface TimelineBlock {
   avgHr: number | null;
   maxHr: number | null;
 }
+export interface RunningSummary {
+  powerW: number | null;
+  speedMps: number | null;
+  strideM: number | null;
+  groundContactMs: number | null;
+  verticalOscillationCm: number | null;
+  distanceM: number | null;
+  paceSPerKm: number | null;
+  metersPerBeat: number | null;
+  verticalRatioPct: number | null;
+  wholeRace: boolean;
+}
 export interface Timeline {
   sessionKey: string;
   localDate: string;
@@ -68,6 +80,7 @@ export interface Timeline {
   hr: { stepS: number; points: [number, number][] } | null;
   blocks: TimelineBlock[];
   summary: { minutes: number; avgHr: number | null; maxHr: number | null } | null;
+  running?: RunningSummary | null;
   spoken: string;
 }
 export const getTimeline = (key: string) => call<Timeline>(`/api/sessions/${encodeURIComponent(key)}/timeline`);
