@@ -44,9 +44,17 @@ function Chart({ r, active, onActive }: { r: Detail; active: number | null; onAc
   for (const p of a.slice(1)) step += `H${x(p.date).toFixed(1)}V${y(p.bestSoFar).toFixed(1)}`;
   const trail = a.map((p, i) => `${i ? "L" : "M"}${x(p.date).toFixed(1)},${y(p.value).toFixed(1)}`).join("");
 
-  const yTicks = [lo + pad, (lo + hi) / 2, hi - pad];
+  // Ticks are keyed by their label, so each label appears once: identical values or a span of a few
+  // days would otherwise repeat one. Spans under three months are labeled by day, longer ones by month.
+  const once = <T,>(ticks: T[], label: (t: T) => string) => [...new Map(ticks.map((t) => [label(t), t])).entries()];
+  const yTicks = once([lo + pad, (lo + hi) / 2, hi - pad], fmt);
   const xTickCount = W < 640 ? 3 : 5;
-  const xTicks = Array.from({ length: xTickCount }, (_, i) => new Date(t0 + ((t1 - t0) * i) / (xTickCount - 1)).toISOString().slice(0, 10));
+  const xFormat: Intl.DateTimeFormatOptions =
+    t1 - t0 < 90 * 86_400_000 ? { month: "short", day: "numeric", timeZone: "UTC" } : { month: "short", year: "2-digit", timeZone: "UTC" };
+  const xTicks = once(
+    Array.from({ length: xTickCount }, (_, i) => new Date(t0 + ((t1 - t0) * i) / (xTickCount - 1)).toISOString().slice(0, 10)),
+    (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", xFormat),
+  );
   const bestIndex = a.findIndex((p) => p.value === r.best.value && p.date === r.best.date);
 
   function nearest(clientX: number, rect: DOMRect) {
@@ -72,23 +80,23 @@ function Chart({ r, active, onActive }: { r: Detail; active: number | null; onAc
             onPointerMove={(e) => onActive(nearest(e.clientX, e.currentTarget.getBoundingClientRect()))}
             onPointerLeave={() => onActive(null)}
           >
-            {yTicks.map((v) => (
-              <g key={v}>
+            {yTicks.map(([label, v]) => (
+              <g key={label}>
                 <line x1={LEFT} x2={W - RIGHT} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.08} />
                 <text x={LEFT - 8} y={y(v) + 4} textAnchor="end" className="fill-muted-foreground text-[12px] tabular-nums">
-                  {fmt(v)}
+                  {label}
                 </text>
               </g>
             ))}
-            {xTicks.map((d, i) => (
+            {xTicks.map(([label, d], i) => (
               <text
-                key={d}
+                key={label}
                 x={x(d)}
                 y={H - 4}
                 textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"}
                 className="fill-muted-foreground text-[12px]"
               >
-                {new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" })}
+                {label}
               </text>
             ))}
             {hover && <line x1={x(hover.date)} x2={x(hover.date)} y1={TOP} y2={H - BOTTOM} stroke="currentColor" strokeOpacity={0.25} />}
