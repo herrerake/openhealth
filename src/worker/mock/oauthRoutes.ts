@@ -51,7 +51,7 @@ mockOAuth.get("/mock/:provider/oauth/authorize", async (c) => {
       </head>
       <body>
         <form class="sheet" method="post">
-          <div class="kicker">3 · Sign in</div>
+          <div class="kicker">Sign in</div>
           <h1>Connect ${p.displayName}</h1>
           <div><strong>OpenHealth wants to read:</strong></div>
           <ul>

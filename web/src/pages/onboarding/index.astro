@@ -1,53 +1,104 @@
 ---
-import App from "../../layouts/App.astro";
+import { ActivityIcon, ArrowRightIcon, DumbbellIcon, FootprintsIcon, LockIcon, TimerIcon } from "lucide-react";
+import { buttonVariants } from "../../components/ui/button";
+import TimeZonePicker from "../../islands/TimeZonePicker";
+import Onboarding from "../../layouts/Onboarding.astro";
 
-const input =
-  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+const SPORTS = [
+  { value: "crossfit", label: "CrossFit", Icon: DumbbellIcon },
+  { value: "running", label: "Running", Icon: FootprintsIcon },
+  { value: "hyrox", label: "HYROX", Icon: TimerIcon },
+  { value: "other", label: "Other", Icon: ActivityIcon },
+];
+const label = "text-sm font-medium";
 ---
 
-<App title="Welcome">
-  <p class="text-muted-foreground text-xs font-medium uppercase tracking-wider">1 · Welcome</p>
-  <h1 class="mt-2 text-2xl font-semibold tracking-tight">Your training, covered like a pro's.</h1>
-  <p class="text-muted-foreground mt-2 text-sm">
-    Bring every app you train with into one place. We read your data; you own it, and nothing is shared without your approval.
-  </p>
-  <form id="welcome" class="mt-6 grid gap-4">
-    <label class="grid gap-2 text-sm font-medium" for="name">Name
-      <input id="name" name="name" required autocomplete="name" class={input} />
-    </label>
-    <label class="grid gap-2 text-sm font-medium" for="sport">Primary sport
-      <select id="sport" name="sport" class={input}>
-        <option value="crossfit">CrossFit</option>
-        <option value="running">Running</option>
-        <option value="hyrox">HYROX</option>
-        <option value="other">Other</option>
-      </select>
-    </label>
-    <label class="grid gap-2 text-sm font-medium" for="tz">Time zone
-      <input id="tz" name="tz" required class={input} />
-    </label>
-    <p id="error" class="text-destructive hidden text-sm" role="alert"></p>
-    <button type="submit" class="bg-primary text-primary-foreground hover:bg-primary/90 h-9 rounded-md px-4 text-sm font-medium shadow-xs">
-      Continue
-    </button>
+<Onboarding
+  title="Welcome"
+  step={1}
+  heading="Your training, covered like a pro's."
+  lede="Bring every app you train with into one place. We read your data; you own it, and nothing is shared without your approval."
+>
+  <form id="welcome" class="grid gap-7" novalidate>
+    <div class="grid gap-2">
+      <label class={label} for="name">Name</label>
+      <input
+        id="name"
+        name="name"
+        required
+        autocomplete="name"
+        placeholder="Your full name"
+        class="h-12 w-full rounded-xl border border-input bg-card px-3.5 text-[15px] shadow-xs outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+      />
+    </div>
+
+    <fieldset class="grid gap-2">
+      <legend class:list={[label, "mb-2"]}>Primary sport</legend>
+      <div class="grid grid-cols-2 gap-2.5">
+        {
+          SPORTS.map(({ value, label, Icon }, i) => (
+            <label class="group relative flex h-14 cursor-pointer items-center gap-3 rounded-xl border border-input bg-card px-3.5 text-[15px] font-medium shadow-xs transition-[border-color,background-color,box-shadow] select-none hover:border-foreground/20 has-checked:border-brand-ink has-checked:bg-brand/[0.07] has-checked:ring-1 has-checked:ring-brand-ink has-focus-visible:ring-[3px] has-focus-visible:ring-ring/40">
+              <input type="radio" name="sport" value={value} checked={i === 0} class="peer sr-only" />
+              <span class="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground transition-colors peer-checked:bg-brand peer-checked:text-brand-foreground">
+                <Icon className="size-4" aria-hidden="true" />
+              </span>
+              {label}
+            </label>
+          ))
+        }
+      </div>
+    </fieldset>
+
+    <div class="grid gap-2">
+      <label class={label} for="tz">Time zone</label>
+      <TimeZonePicker client:load id="tz" name="tz" />
+      <p class="text-muted-foreground text-xs">We use this to place each workout on the right day.</p>
+    </div>
+
+    <p id="error" class="text-destructive hidden rounded-lg bg-destructive/10 px-3 py-2 text-sm" role="alert"></p>
+
+    <div class="grid gap-4">
+      <button type="submit" class={buttonVariants({ variant: "brand", size: "xl", className: "group w-full" })}>
+        <span data-label>Continue</span>
+        <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </button>
+      <p class="text-muted-foreground flex items-center justify-center gap-1.5 text-xs">
+        <LockIcon className="size-3.5" aria-hidden="true" /> Private by default. You can change these anytime.
+      </p>
+    </div>
   </form>
   <script>
     import { createAthlete } from "../../lib/api";
 
     const form = document.getElementById("welcome") as HTMLFormElement;
-    const tz = form.elements.namedItem("tz") as HTMLInputElement;
-    tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const name = form.elements.namedItem("name") as HTMLInputElement;
+    const submit = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+    const error = document.getElementById("error")!;
+    const fail = (message: string) => {
+      error.textContent = message;
+      error.classList.remove("hidden");
+    };
+    name.addEventListener("input", () => name.removeAttribute("aria-invalid"));
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      error.classList.add("hidden");
       const data = new FormData(form);
+      if (!String(data.get("name")).trim()) {
+        name.setAttribute("aria-invalid", "true");
+        name.focus();
+        return fail("Enter your name to continue.");
+      }
+      submit.disabled = true;
+      submit.querySelector("[data-label]")!.textContent = "Setting up…";
       try {
-        await createAthlete({ name: String(data.get("name")), primarySport: String(data.get("sport")), tz: String(data.get("tz")) });
+        await createAthlete({ name: String(data.get("name")).trim(), primarySport: String(data.get("sport")), tz: String(data.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone) });
         location.assign("/onboarding/connect");
       } catch {
-        const error = document.getElementById("error")!;
-        error.textContent = "Check your name and time zone (for example America/Los_Angeles).";
-        error.classList.remove("hidden");
+        submit.disabled = false;
+        submit.querySelector("[data-label]")!.textContent = "Continue";
+        fail("We couldn't save that. Check your name and time zone, then try again.");
       }
     });
   </script>
-</App>
+</Onboarding>

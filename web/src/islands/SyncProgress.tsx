@@ -1,5 +1,5 @@
 import { AgentClient } from "agents/client";
-import { AlertCircleIcon, CheckIcon, LoaderIcon } from "lucide-react";
+import { AlertCircleIcon, ArrowRightIcon, CheckIcon, LoaderIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +11,7 @@ const NAMES: Record<string, string> = { wodup: "WodUp", mindbody: "Mindbody", ga
 const secs = (ms = 0) => `${(ms / 1000).toFixed(1)} s`;
 
 function StatusIcon({ status }: { status: ProviderProgress["status"] | "running" | "pending" }) {
-  if (status === "done") return <CheckIcon className="size-4 text-chart-2" />;
+  if (status === "done") return <CheckIcon className="size-4 text-brand-ink" strokeWidth={3} />;
   if (status === "error") return <AlertCircleIcon className="size-4 text-destructive" />;
   return <LoaderIcon className="size-4 animate-spin text-muted-foreground" />;
 }
@@ -81,12 +81,13 @@ export default function SyncProgress() {
   const finished = state.status === "done" || state.status === "error";
   const t = state.summary?.timings ?? {};
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-6">
+      <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
       {Object.entries(state.providers).map(([id, p]) => (
-        <div key={id} className="grid gap-1.5" data-testid={`sync-${id}`}>
+        <li key={id} className="grid gap-2 px-4 py-3.5" data-testid={`sync-${id}`}>
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="flex items-center gap-2">
-              <StatusIcon status={p.status} /> {p.label}
+              <StatusIcon status={p.status} /> <span className="font-medium">{p.label}</span>
             </span>
             {p.status === "error" && (
               <Button size="sm" variant="outline" onClick={() => startSync([id]).catch(onUnauthorized)}>
@@ -99,16 +100,17 @@ export default function SyncProgress() {
           ) : (
             <Progress value={p.status === "done" ? 100 : p.total ? Math.round((p.done / p.total) * 100) : undefined} />
           )}
-        </div>
+        </li>
       ))}
-      <div
-        className="flex items-center gap-2 text-sm"
+      <li
+        className="flex items-center gap-2 px-4 py-3.5 text-sm"
         data-testid="sync-matching"
         data-status={state.status === "error" && state.reconcile.status !== "done" ? "error" : state.reconcile.status}
       >
         <StatusIcon status={state.reconcile.status === "done" ? "done" : state.status === "error" ? "error" : "running"} /> Matching workouts across
         sources…
-      </div>
+      </li>
+      </ul>
       {state.status === "error" && (
         <p role="alert" className="text-sm text-destructive">
           Sync failed{state.error ? `: ${state.error}` : "."} Your earlier data is unchanged.
@@ -131,8 +133,8 @@ export default function SyncProgress() {
         </Card>
       )}
       {finished && (
-        <a className={buttonVariants({ size: "lg" })} href="/dashboard">
-          See your dashboard
+        <a className={buttonVariants({ variant: "brand", size: "xl" })} href="/dashboard">
+          See your dashboard <ArrowRightIcon />
         </a>
       )}
     </div>
