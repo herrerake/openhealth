@@ -51,6 +51,14 @@ describe("session timeline", () => {
     expect(t.blocks.map((b: any) => b.avgHr)).toContain(n);
   });
 
+  it("says a one-block workout has heart rate, not that none was recorded", async () => {
+    const t = await timelineOn("2026-10-25");
+    expect(t).toMatchObject({ method: "whole_workout" });
+    expect(t.hr.points.length).toBeGreaterThan(0);
+    expect(t.blocks).toHaveLength(1);
+    expect(t.blocks[0].avgHr).toBeGreaterThan(0);
+  });
+
   it("shows the plan without times when the watch recorded nothing", async () => {
     const t = await timelineOn("2026-10-06");
     expect(t).toMatchObject({ method: "none", hr: null });

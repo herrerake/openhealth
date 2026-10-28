@@ -186,7 +186,7 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
             <div key={s.sessionKey} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
               <a
                 href={`/session/?key=${encodeURIComponent(s.sessionKey)}`}
-                data-testid={`session-link-${s.localDate}`}
+                data-testid={`session-link-${s.sessionKey}`}
                 className="w-full text-muted-foreground underline-offset-4 hover:underline sm:w-40 sm:shrink-0 sm:text-foreground"
               >
                 {shortDate(s.localDate)} · {s.title}

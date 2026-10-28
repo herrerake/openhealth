@@ -13,6 +13,7 @@ const METHOD_LABEL: Record<Timeline["method"], string> = {
   watch_segments: "Watch segments",
   ai_match: "Blocks estimated by AI · not exact",
   duration_match: "Blocks estimated · not exact",
+  whole_workout: "Whole workout · not split into blocks",
   none: "No heart rate recorded",
 };
 

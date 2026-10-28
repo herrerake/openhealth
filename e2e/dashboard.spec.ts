@@ -27,7 +27,8 @@ test("shows the record book with scoped bests", async () => {
 
 test("opens a session's heart-rate timeline from recent sessions", async () => {
   await page.goto("/dashboard");
-  await page.getByTestId("session-link-2026-10-25").click();
+  // Recent sessions run newest first; the newest is the 2026-10-25 easy run.
+  await page.getByTestId(/^session-link-/).first().click();
   await expect(page).toHaveURL(/\/session\/\?key=/);
   await expect(page.getByTestId("timeline-blocks")).toBeVisible();
   await expect(page.getByTestId("timeline-spoken")).toContainText("beats per minute");

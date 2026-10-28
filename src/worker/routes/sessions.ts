@@ -213,6 +213,8 @@ sessions.get("/api/sessions/:sessionKey/timeline", requireAthlete, async (c) => 
   if (!blocks.length) {
     const label = ordered.length === 1 ? plannedBlocks(ordered)[0].label : title;
     blocks = [{ label, prescription: null, startS: 0, endS: Math.round(totalS), source: "watch", ...hrStats(points, 0, totalS) }];
+    // The badge must agree with the chart: heart rate shown in one block isn't "no heart rate".
+    if (points.length) method = "whole_workout";
   }
 
   const whole = hrStats(points, 0, totalS);

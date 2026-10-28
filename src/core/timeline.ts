@@ -3,7 +3,8 @@
 // blocks matched to boundaries that code finds in the heart rate. Every time and number here
 // is computed by code; a model may only choose among `candidates` (see the worker's AI matcher).
 
-export type TimelineMethod = "hyrox_splits" | "watch_segments" | "duration_match" | "ai_match" | "none";
+/** whole_workout: heart rate exists but couldn't be split into blocks. none: no heart rate at all. */
+export type TimelineMethod = "hyrox_splits" | "watch_segments" | "duration_match" | "ai_match" | "whole_workout" | "none";
 export type BlockSource = "official" | "watch" | "estimated";
 
 export interface PlannedBlock {

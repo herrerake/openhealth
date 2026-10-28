@@ -64,7 +64,7 @@ export interface Timeline {
   title: string;
   tz: string;
   startUtc: string;
-  method: "hyrox_splits" | "watch_segments" | "duration_match" | "ai_match" | "none";
+  method: "hyrox_splits" | "watch_segments" | "duration_match" | "ai_match" | "whole_workout" | "none";
   hr: { stepS: number; points: [number, number][] } | null;
   blocks: TimelineBlock[];
   summary: { minutes: number; avgHr: number | null; maxHr: number | null } | null;
