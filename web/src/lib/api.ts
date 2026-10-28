@@ -79,3 +79,30 @@ export const uploadAppleBatch = (fileSha256: string, records: unknown[]) =>
     body: JSON.stringify({ fileSha256, records }),
   });
 export const isConnected = (p: Provider) => p.connection?.status === "connected" || p.connection?.status === "syncing";
+
+export interface RecordAttempt {
+  date: string;
+  value: number;
+  sessionKey: string | null;
+  title: string;
+  pr: boolean;
+  bestSoFar: number;
+}
+export interface RecordDetail {
+  benchmark: string;
+  label: string;
+  unit: "s" | "rounds" | "lb";
+  better: "lower" | "higher";
+  asOf: string;
+  best: { value: number; date: string; sessionKey: string | null };
+  latest: { value: number; date: string; sessionKey: string | null };
+  first: { value: number; date: string };
+  change: number;
+  prCount: number;
+  attempts: RecordAttempt[];
+  display: string;
+  context: string;
+  spoken: string;
+  calc: { description: string; inputs: { sourceRecordIds?: number[] } };
+}
+export const getRecord = (benchmark: string) => call<RecordDetail>(`/api/records/${encodeURIComponent(benchmark)}`);

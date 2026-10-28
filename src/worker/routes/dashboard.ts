@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { resolveAsOf } from "../dashboard/asOf";
 import { HOME_SPEC, isTileType } from "../dashboard/spec";
-import { type TileContext, computeTile } from "../dashboard/tiles";
+import { type TileContext, computeTile, recordDetail } from "../dashboard/tiles";
 import type { AppEnv } from "../env";
 import { currentGeneration } from "../reconcileStore";
 import { requireAthlete } from "../session";
@@ -23,4 +23,10 @@ dashboard.get("/api/tiles/:type", requireAthlete, async (c) => {
   const type = c.req.param("type");
   if (!isTileType(type)) return c.json({ error: "unknown_tile" }, 404);
   return c.json(await computeTile(type, await context(c)));
+});
+
+/** One benchmark's full record: every attempt, the progression of the best, and links to each session. */
+dashboard.get("/api/records/:benchmark", requireAthlete, async (c) => {
+  const detail = await recordDetail(await context(c), c.req.param("benchmark"));
+  return detail ? c.json(detail) : c.json({ error: "not_found" }, 404);
 });

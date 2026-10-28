@@ -28,7 +28,8 @@ test("log out returns to the homepage and ends the session", async ({ page }) =>
   await expect(page).toHaveURL(/\/onboarding\/connect\/?$/);
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your training, covered like a pro's.");
-  await page.goto("/dashboard");
+  // The dashboard sends a signed-out visitor to /login while it's still loading, which aborts a goto that waits for load.
+  await page.goto("/dashboard", { waitUntil: "commit" });
   await expect(page).toHaveURL(/\/login\/?$/);
 });
 

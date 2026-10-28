@@ -25,6 +25,18 @@ test("shows the record book with scoped bests", async () => {
   await expect(page.getByTestId("record-deadlift_4x4")).toContainText("295 lb");
 });
 
+test("opens a record's full history from the record book", async () => {
+  await page.goto("/dashboard");
+  await page.getByTestId("record-hyrox_total").click();
+  await expect(page).toHaveURL(/\/record\/\?benchmark=hyrox_total/);
+  await expect(page.getByTestId("record-title")).toHaveText("HYROX finish");
+  await expect(page.getByTestId("record-spoken")).toContainText("13:42 faster than your first");
+  await expect(page.getByTestId("record-attempts").locator("tbody tr")).toHaveCount(4);
+  await expect(page.getByTestId("attempt-2026-09-19")).toContainText("Best");
+  await page.getByTestId("attempt-2026-09-19").getByRole("link").click();
+  await expect(page.getByTestId("session-title")).toHaveText("HYROX 2026 Dallas");
+});
+
 test("opens a session's heart-rate timeline from recent sessions", async () => {
   await page.goto("/dashboard");
   // Recent sessions run newest first; the newest is the 2026-10-25 easy run.
