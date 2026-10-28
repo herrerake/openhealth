@@ -1,0 +1,34 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "openhealth",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "wrangler",
+        "dev",
+        "--port",
+        "8787"
+      ],
+      "port": 8787
+    },
+    {
+      "name": "openhealth-henry",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "npm run build:web && npx wrangler dev --port 8789 --persist-to .wrangler/henry --var SESSION_SECRET:henry-local-secret"
+      ],
+      "port": 8789
+    },
+    {
+      "name": "openhealth-marketing",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "npm run build:web && npx wrangler dev --port 8790 --persist-to .wrangler/marketing"
+      ],
+      "port": 8790
+    }
+  ]
+}

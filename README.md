@@ -1,6 +1,6 @@
 # OpenHealth
 
-ESPN-style coverage for amateur athletes. OpenHealth pulls an athlete's training data from the apps they already use into one owned history, then builds dashboards and data-backed stories on top. See [docs/PRD.md](docs/PRD.md) and [docs/SPEC.md](docs/SPEC.md).
+ESPN-style coverage for amateur athletes. OpenHealth pulls an athlete's training data from the apps they already use into one owned history, then builds dashboards and data-backed stories on top. The why is in [docs/VISION.md](docs/VISION.md); the what and how are in [docs/PRD.md](docs/PRD.md) and [docs/SPEC.md](docs/SPEC.md).
 
 **Phase A, the data infrastructure:**
 - connectors (WodUp, Mindbody, Apple Health, HYROX race results, and demo stubs for Garmin, Oura, WHOOP and other race results);
@@ -18,7 +18,7 @@ npm install
 npm run fixtures                                       # two years of synthetic data + validation
 npx wrangler d1 migrations apply openhealth --local    # local D1 schema
 npm run seed:mock                                      # fixtures → local R2 for the demo providers
-cp .dev.vars.example .dev.vars                         # local SESSION_SECRET
+cp .dev.vars.example .dev.vars                         # local SESSION_SECRET and DEMO_PASSWORD
 npm run dev                                            # wrangler dev on :8787
 ```
 
@@ -56,6 +56,7 @@ npx wrangler d1 migrations apply openhealth --remote
 npm run seed:mock -- --remote
 npx wrangler deploy
 openssl rand -base64 48 | npx wrangler secret put SESSION_SECRET   # first deploy only
+npx wrangler secret put DEMO_PASSWORD                              # log-in for the demo account, henry@example.com (D-041); each log-in starts Henry over (D-043)
 OPENHEALTH_URL=https://openhealth.herrerake.workers.dev npm run demo:sync
 ```
 
@@ -70,7 +71,7 @@ OPENHEALTH_URL=https://openhealth.herrerake.workers.dev npm run demo:sync
 **Preview isolation:**
 - Each Preview gets its own Durable Object namespace automatically.
 - D1 and R2 point at `openhealth-preview` / `openhealth-raw-preview` (the `previews` block in `wrangler.jsonc`).
-- `SESSION_SECRET` comes from the Preview base config.
+- `SESSION_SECRET` and `DEMO_PASSWORD` come from the Preview base config. Without `DEMO_PASSWORD`, `/login` answers "We couldn't log you in just now."
 
 **Repository settings** (one-time):
 

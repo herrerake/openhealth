@@ -26,6 +26,7 @@ export default defineConfig({
               bindings: {
                 TEST_MIGRATIONS: await readD1Migrations(`${root}src/db/migrations`),
                 SESSION_SECRET: "test-secret",
+                DEMO_PASSWORD: "test-demo-password",
               },
             },
           })),

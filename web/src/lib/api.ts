@@ -10,12 +10,12 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /**
- * Sends the athlete to onboarding when their session is missing or no longer valid.
+ * Sends the athlete to log in when their session is missing or no longer valid.
  * Returns true when it did; any other error is the caller's to show.
  */
 export function onUnauthorized(e: unknown): boolean {
   if (!(e instanceof UnauthorizedError)) return false;
-  location.replace("/onboarding");
+  location.replace("/login");
   return true;
 }
 
@@ -37,6 +37,9 @@ export interface Provider {
 }
 
 export const getMe = () => call<Me>("/api/me");
+/** Throws UnauthorizedError when the email and password don't match. */
+export const logIn = (email: string, password: string) =>
+  call<{ next: string }>("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
 export const getProviders = () => call<Provider[]>("/api/providers");
 export const createAthlete = (body: { name: string; primarySport: string; tz: string }) =>
   call<{ id: string }>("/api/athletes", { method: "POST", body: JSON.stringify(body) });

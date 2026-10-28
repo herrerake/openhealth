@@ -1,0 +1,75 @@
+---
+import { ArrowRightIcon, LockIcon } from "lucide-react";
+import { buttonVariants } from "../components/ui/button";
+import App from "../layouts/App.astro";
+
+const label = "text-sm font-medium";
+const input =
+  "h-12 w-full rounded-xl border border-input bg-card px-3.5 text-[15px] shadow-xs outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground/70 hover:border-foreground/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20";
+---
+
+<App title="Log in" narrow>
+  <div class="animate-rise">
+    <h1 class="font-display text-[2rem] leading-[1.1] font-semibold tracking-[-0.025em] text-balance sm:text-[2.25rem]">Welcome back.</h1>
+    <p class="text-muted-foreground mt-3 text-[15px] leading-relaxed text-pretty">Log in to pick up your history where you left it.</p>
+  </div>
+
+  <form id="login" class="animate-rise mt-8 grid gap-6 [animation-delay:60ms]" novalidate>
+    <div class="grid gap-2">
+      <label class={label} for="email">Email</label>
+      <input id="email" name="email" type="email" required autocomplete="username" inputmode="email" placeholder="you@example.com" class={input} />
+    </div>
+    <div class="grid gap-2">
+      <label class={label} for="password">Password</label>
+      <input id="password" name="password" type="password" required autocomplete="current-password" class={input} />
+    </div>
+
+    <p id="error" role="alert" class="text-destructive hidden text-sm"></p>
+
+    <div class="grid gap-4">
+      <button type="submit" class={buttonVariants({ variant: "brand", size: "xl", className: "group w-full" })}>
+        <span data-label>Log in</span>
+        <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+      </button>
+      <p class="text-muted-foreground flex items-center justify-center gap-1.5 text-xs">
+        <LockIcon className="size-3.5" aria-hidden="true" /> Your data stays yours. Nothing is shared without your approval.
+      </p>
+    </div>
+  </form>
+
+  <script>
+    import { UnauthorizedError, logIn } from "../lib/api";
+
+    const form = document.getElementById("login") as HTMLFormElement;
+    const email = form.elements.namedItem("email") as HTMLInputElement;
+    const password = form.elements.namedItem("password") as HTMLInputElement;
+    const submit = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+    const label = submit.querySelector("[data-label]")!;
+    const error = document.getElementById("error")!;
+    const fail = (message: string, field?: HTMLInputElement) => {
+      error.textContent = message;
+      error.classList.remove("hidden");
+      field?.setAttribute("aria-invalid", "true");
+      field?.focus();
+    };
+    for (const f of [email, password]) f.addEventListener("input", () => f.removeAttribute("aria-invalid"));
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      error.classList.add("hidden");
+      if (!email.value.trim()) return fail("Enter your email to log in.", email);
+      if (!password.value) return fail("Enter your password to log in.", password);
+      submit.disabled = true;
+      label.textContent = "Logging in…";
+      try {
+        const { next } = await logIn(email.value, password.value);
+        location.assign(next);
+      } catch (err) {
+        submit.disabled = false;
+        label.textContent = "Log in";
+        if (err instanceof UnauthorizedError) fail("That email and password don't match.", password);
+        else fail("We couldn't log you in just now. Try again in a moment.");
+      }
+    });
+  </script>
+</App>
