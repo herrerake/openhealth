@@ -133,3 +133,47 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Marketing "broadcast" bands (VOICE.md §5): always dark, whatever the theme, like a TV graphics package.
+   Redefines the tokens for the subtree so shadcn utilities inside keep working. */
+.broadcast {
+  color-scheme: dark;
+  --background: oklch(0.13 0.004 260);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.17 0.004 260);
+  --card-foreground: oklch(0.97 0 0);
+  --muted: oklch(0.22 0.004 260);
+  --muted-foreground: oklch(0.72 0.005 260);
+  --brand: oklch(0.91 0.2 124);
+  --brand-ink: oklch(0.91 0.2 124);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.91 0.2 124 / 70%);
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* A faint broadcast-monitor grid behind the hero. */
+.broadcast-grid {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 4%) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 4%) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 70% at 70% 30%, black 30%, transparent 75%);
+}
+
+@keyframes ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility animate-ticker {
+  animation: ticker 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ticker {
+    animation: none !important;
+  }
+}

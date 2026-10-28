@@ -10,6 +10,7 @@ const FILES = [
   "wodup/training_sessions.json",
   "wodup/athlete.json",
   "mindbody/client_visits.json",
+  "hyrox/results.json",
   "apple-health/export.xml",
   "expected.json",
 ];
@@ -39,6 +40,7 @@ export const readJson = (f: string): any => JSON.parse(readFileSync(join(DATA, f
 export const readExpected = (): any => readJson("expected.json");
 export const readSessions = (): any[] => readJson("wodup/training_sessions.json");
 export const readVisits = (): any[] => readJson("mindbody/client_visits.json").Visits;
+export const readHyrox = (): any => readJson("hyrox/results.json");
 export const readAppleXml = (): string => readFileSync(appleXmlPath, "utf8");
 
 export function appleWorkoutStarts(xml = readAppleXml()): string[] {
@@ -48,13 +50,13 @@ export function appleWorkoutStarts(xml = readAppleXml()): string[] {
 export const minLocalDate = (rows: { localDate: string }[]) => rows.map((r) => r.localDate).sort()[0];
 export const maxLocalDate = (rows: { localDate: string }[]) => rows.map((r) => r.localDate).sort().at(-1);
 
-const LA = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" });
-export const laDate = (utc: string) => LA.format(new Date(utc));
+const CT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" });
+export const ctDate = (utc: string) => CT.format(new Date(utc));
 
-/** All WodUp results with their local date (wod.occurs_on, else done_at in LA). */
+/** All WodUp results with their local date (wod.occurs_on, else done_at in Austin). */
 export function allResults(): { date: string; result: any }[] {
   return readSessions().flatMap((s) =>
-    s.results.map((r: any) => ({ date: s.wod?.occurs_on ?? laDate(r.done_at), result: r })),
+    s.results.map((r: any) => ({ date: s.wod?.occurs_on ?? ctDate(r.done_at), result: r })),
   );
 }
 
@@ -68,18 +70,21 @@ export const notesOn = (date: string) => allNotes().filter((n) => n.date === dat
 export const notesContaining = (word: string) =>
   allNotes().filter((n) => n.text.toLowerCase().includes(word.toLowerCase()));
 
-export function franResults(): { date: string; seconds: number }[] {
-  return allResults()
-    .filter((r) => r.result.type === "FranStyleResult" && r.result.prescribed_workout.name === "Fran")
-    .map((r) => ({ date: r.date, seconds: r.result.details.total }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+/** Official HYROX finish times in date order. */
+export function raceResults(): { date: string; event: string; seconds: number }[] {
+  return readHyrox()
+    .results.map((r: any) => {
+      const [h, m, sec] = r.overall.time.split(":").map(Number);
+      return { date: r.event.date, event: r.event.name, seconds: h * 3600 + m * 60 + sec };
+    })
+    .sort((a: any, b: any) => a.date.localeCompare(b.date));
 }
 
-/** Top back-squat 5x5 load per session, in date order. */
-export function squatTopSetsByWeek(): { date: string; lbs: number }[] {
+/** Top deadlift 4x4 load per session, in date order. */
+export function deadliftTopSets(): { date: string; lbs: number }[] {
   return allResults()
-    .filter((r) => r.result.type === "StrengthResult" && r.result.movements[0]?.name === "Back Squat")
-    .filter((r) => r.result.details.sets.length >= 5 && r.result.details.sets.every((s: any) => s.reps === 5))
+    .filter((r) => r.result.type === "StrengthResult" && r.result.movements[0]?.name === "Deadlift")
+    .filter((r) => r.result.details.sets.length === 4 && r.result.details.sets.every((s: any) => s.reps === 4))
     .map((r) => ({ date: r.date, lbs: Math.max(...r.result.details.sets.map((s: any) => s.load)) }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -135,6 +140,7 @@ export function recordsBetween(from: string, to: string): number {
   const inRange = (d: string) => d >= from && d <= to;
   const visits = readVisits().filter((v) => inRange(v.StartDateTime.slice(0, 10))).length;
   const results = allResults().filter((r) => inRange(r.date)).length;
+  const races = readHyrox().results.filter((r: any) => inRange(r.event.date)).length;
   const apple = [...readAppleXml().matchAll(/ startDate="(\d{4}-\d{2}-\d{2})/g)].filter((m) => inRange(m[1])).length;
-  return visits + results + apple;
+  return visits + results + races + apple;
 }

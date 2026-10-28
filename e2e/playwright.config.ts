@@ -12,12 +12,12 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   globalSetup: "./global-setup.ts",
-  // The fixtures' gym is in Los Angeles; onboarding defaults the athlete's zone from the browser.
-  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", timezoneId: "America/Los_Angeles" },
+  // The fixtures' gym is in Austin; onboarding defaults the athlete's zone from the browser.
+  use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure", timezoneId: "America/Chicago" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     // The secret is passed here, not via .dev.vars: Playwright starts the server before globalSetup runs.
-    command: `npm run build:web && npx wrangler dev --port ${PORT} --persist-to .wrangler/e2e --var SESSION_SECRET:e2e-local-secret`,
+    command: `npm run build:web && npx wrangler dev --port ${PORT} --persist-to .wrangler/e2e --var SESSION_SECRET:e2e-local-secret --var DEMO_PASSWORD:e2e-demo-password`,
     cwd: "..",
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: !process.env.CI,

@@ -187,3 +187,18 @@ export async function upsertConnection(
     )
     .run();
 }
+
+/** Tables keyed by athlete_id. session_sources hangs off sessions, so deleteAthlete clears it first. */
+const ATHLETE_TABLES = [
+  "connections", "oauth_states", "sync_runs", "source_records", "sessions", "results", "measurements",
+  "notes", "conflicts", "decisions", "dashboards", "stories", "reconcile_generations",
+];
+
+/** Removes an athlete and every row they own in one atomic batch. Their Durable Object is left behind. */
+export async function deleteAthlete(db: D1Database, athleteId: string): Promise<void> {
+  await db.batch([
+    db.prepare("DELETE FROM session_sources WHERE session_id IN (SELECT id FROM sessions WHERE athlete_id = ?)").bind(athleteId),
+    ...ATHLETE_TABLES.map((t) => db.prepare(`DELETE FROM ${t} WHERE athlete_id = ?`).bind(athleteId)),
+    db.prepare("DELETE FROM athletes WHERE id = ?").bind(athleteId),
+  ]);
+}

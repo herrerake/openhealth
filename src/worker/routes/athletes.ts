@@ -1,8 +1,7 @@
 import { Hono } from "hono";
-import { setCookie } from "hono/cookie";
 import type { AppEnv } from "../env";
-import { SESSION_COOKIE, requireAthlete, signSession } from "../session";
-import { getConnections } from "../store";
+import { endSession, requireAthlete, secretsEqual, startSession } from "../session";
+import { deleteAthlete, getConnections } from "../store";
 
 const validTimeZone = (tz: unknown): tz is string => {
   if (typeof tz !== "string" || !tz) return false;
@@ -24,13 +23,38 @@ athletes.post("/api/athletes", async (c) => {
   await c.env.DB.prepare("INSERT INTO athletes (id, name, primary_sport, tz, created_at) VALUES (?, ?, ?, ?, ?)")
     .bind(id, name, body.primarySport ?? null, body.tz, new Date().toISOString())
     .run();
-  setCookie(c, SESSION_COOKIE, await signSession(id, c.env.SESSION_SECRET), {
-    httpOnly: true,
-    sameSite: "Lax",
-    path: "/",
-    secure: new URL(c.req.url).protocol === "https:",
-  });
+  await startSession(c, id);
   return c.json({ id }, 201);
+});
+
+// The demo account (D-041): Hyrox Henry, already signed up. Its email is a var and its password a secret.
+// Every log-in starts him over (D-043): the old Henry and all his data go, and a new one picks up onboarding
+// at Connect, so each rehearsal and the stage demo run the same flow.
+const DEMO_ATHLETE = { name: "Henry Walsh", primarySport: "hyrox", tz: "America/Chicago" };
+
+athletes.post("/api/login", async (c) => {
+  if (!c.env.DEMO_EMAIL || !c.env.DEMO_PASSWORD) return c.json({ error: "log-in isn't set up" }, 503);
+  const body = await c.req.json<{ email?: unknown; password?: unknown }>().catch(() => ({}) as never);
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body?.password === "string" ? body.password : "";
+  const emailOk = email === c.env.DEMO_EMAIL.toLowerCase();
+  const passwordOk = await secretsEqual(password, c.env.DEMO_PASSWORD, c.env.SESSION_SECRET);
+  if (!emailOk || !passwordOk) return c.json({ error: "invalid credentials" }, 401);
+
+  const previous = await c.env.DB.prepare("SELECT id FROM athletes WHERE email = ?").bind(email).first<{ id: string }>();
+  if (previous) await deleteAthlete(c.env.DB, previous.id);
+  // A new id also means a new AthleteAgent, so no sync state carries over.
+  const id = `ath_${crypto.randomUUID()}`;
+  await c.env.DB.prepare("INSERT INTO athletes (id, name, primary_sport, tz, created_at, email) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(id, DEMO_ATHLETE.name, DEMO_ATHLETE.primarySport, DEMO_ATHLETE.tz, new Date().toISOString(), email)
+    .run();
+  await startSession(c, id);
+  return c.json({ next: "/onboarding/connect" });
+});
+
+athletes.post("/api/logout", (c) => {
+  endSession(c);
+  return c.body(null, 204);
 });
 
 athletes.get("/api/me", requireAthlete, async (c) => {

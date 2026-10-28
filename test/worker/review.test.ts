@@ -5,11 +5,11 @@ import { runReconcile } from "../../src/worker/reconcileStore";
 import { authedFetch, createAthlete } from "./helpers";
 import { expectedFixture, insertAllFixtureRecords } from "./seed";
 
-const TZ = "America/Los_Angeles";
+const TZ = "America/Chicago";
 let cookie: string;
 let athleteId: string;
 
-async function seededAthlete(name = "Alex Rivera"): Promise<{ cookie: string; id: string }> {
+async function seededAthlete(name = "Henry Walsh"): Promise<{ cookie: string; id: string }> {
   const c = await createAthlete(name);
   const id = (await (await authedFetch("/api/me", {}, c)).json<{ id: string }>()).id;
   await insertAllFixtureRecords(id);
@@ -39,16 +39,16 @@ describe("review actions", () => {
   });
 
   it("merging the split workout clears it from the queue and confirms the class", async () => {
-    const key = await itemKey("2026-10-17");
+    const key = await itemKey("2026-10-14");
     const r = await post(key, { action: "merge" });
-    expect(r.queue.map((i: any) => i.localDate)).not.toContain("2026-10-17");
+    expect(r.queue.map((i: any) => i.localDate)).not.toContain("2026-10-14");
     expect((await get(`/api/sessions/${encodeURIComponent(key)}`)).session.status).toBe("confirmed");
   });
 
   it("splitting produces two sessions that day", async () => {
-    await post(await itemKey("2026-10-17"), { action: "split" });
-    const recent = await get("/api/tiles/recent_sessions?asOf=2026-10-17");
-    expect(recent.value.filter((s: any) => s.localDate === "2026-10-17")).toHaveLength(2);
+    await post(await itemKey("2026-10-14"), { action: "split" });
+    const recent = await get("/api/tiles/recent_sessions?asOf=2026-10-14");
+    expect(recent.value.filter((s: any) => s.localDate === "2026-10-14")).toHaveLength(2);
   });
 
   it("picking one field records the athlete's choice for that field", async () => {
@@ -78,7 +78,7 @@ describe("review actions", () => {
   });
 
   it("a session with two kinds of review accepts either action", async () => {
-    const key = await itemKey("2026-10-17");
+    const key = await itemKey("2026-10-14");
     await env.DB.prepare(
       `UPDATE sessions SET flags = '["ambiguous_split_apple_workout","logged_hours_later"]'
        WHERE athlete_id = ? AND session_key = ? AND generation = (SELECT generation FROM reconcile_generations WHERE athlete_id = ?)`,
@@ -114,22 +114,22 @@ describe("reconcile serialization", () => {
 
 describe("session detail", () => {
   it("explains every source", async () => {
-    const d = await get(`/api/sessions/${encodeURIComponent(await recentKey("2026-10-20"))}`);
-    expect(d.sources.map((s: any) => s.source).sort()).toEqual(["apple_health", "apple_health", "mindbody", "wodup", "wodup"]);
+    const d = await get(`/api/sessions/${encodeURIComponent(await recentKey("2026-09-21"))}`);
+    expect(d.sources.map((s: any) => s.source).sort()).toEqual(["apple_health", "apple_health", "mindbody", ...Array(6).fill("wodup")]);
     expect(d.sources.every((s: any) => s.summary.length > 5)).toBe(true);
     expect(d.sources.find((s: any) => s.kind === "workout").summary).toMatch(/^Apple Watch workout/);
-    expect(d.results[0]).toMatchObject({ benchmark: "fran", value: 261 });
-    expect(d.notes.map((n: any) => n.text)).toContain("Unbroken thrusters. Finally.");
+    expect(d.results[0]).toMatchObject({ benchmark: "deadlift_4x4", value: 285 });
+    expect(d.notes.map((n: any) => n.text)).toContain("Wall balls unbroken in Dallas. Finally.");
   });
 
   it("another athlete's session is not found", async () => {
     const other = await seededAthlete("Someone Else");
-    const key = await (async () => (await get("/api/tiles/recent_sessions?asOf=2026-10-20", other.cookie)).value[0].sessionKey)();
+    const key = await (async () => (await get("/api/tiles/recent_sessions?asOf=2026-10-19", other.cookie)).value[0].sessionKey)();
     // Same synthetic data means the same keys exist for both athletes; prove scoping with a key only `other` has after a split.
     const theirs = await (await authedFetch(`/api/review`, {}, other.cookie)).json<any[]>();
-    const split = theirs.find((i) => i.localDate === "2026-10-17").sessionKey;
+    const split = theirs.find((i) => i.localDate === "2026-10-14").sessionKey;
     await authedFetch(`/api/review/${encodeURIComponent(split)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "split" }) }, other.cookie);
-    const theirRecent = await get("/api/tiles/recent_sessions?asOf=2026-10-17", other.cookie);
+    const theirRecent = await get("/api/tiles/recent_sessions?asOf=2026-10-14", other.cookie);
     const onlyTheirs = theirRecent.value.map((s: any) => s.sessionKey).find((k: string) => k !== split && k.startsWith("workout:"));
     expect(key).toBeTruthy();
     expect((await getRaw(`/api/sessions/${encodeURIComponent(onlyTheirs)}`)).status).toBe(404);

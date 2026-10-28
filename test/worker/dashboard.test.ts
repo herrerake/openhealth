@@ -6,7 +6,7 @@ import { runReconcile } from "../../src/worker/reconcileStore";
 import { authedFetch, createAthlete } from "./helpers";
 import { expectedFixture, fixtureAppleRecords, insertAllFixtureRecords } from "./seed";
 
-const TZ = "America/Los_Angeles";
+const TZ = "America/Chicago";
 const HOME_ORDER = HOME_SPEC.tiles.map((t) => t.type);
 
 let cookie: string;
@@ -62,16 +62,19 @@ describe("home dashboard", () => {
     const t = (await dash()).tiles.recent_sessions;
     expect(t.value).toHaveLength(5);
     expect(t.value[0].localDate).toBe("2026-10-25");
-    expect(t.value.map((s: any) => s.localDate)).toEqual(["2026-10-25", "2026-10-24", "2026-10-23", "2026-10-22", "2026-10-21"]);
+    expect(t.value.map((s: any) => s.localDate)).toEqual(["2026-10-25", "2026-10-23", "2026-10-22", "2026-10-21", "2026-10-21"]);
     expect(t.value.find((s: any) => s.localDate === "2026-10-22").sources.sort()).toEqual(["apple_health", "mindbody", "wodup"]);
-    const fran = (await dash("?asOf=2026-10-20")).tiles.recent_sessions.value[0];
-    expect(fran).toMatchObject({ localDate: "2026-10-20", primary: "Fran 4:21 rx" });
-    expect(fran.title).toMatch(/^CrossFit 6:0\d$/);
+    const monday = (await dash("?asOf=2026-10-19")).tiles.recent_sessions.value[0];
+    expect(monday).toMatchObject({ localDate: "2026-10-19", primary: "Deadlift 4x4 @285" });
+    expect(monday.title).toMatch(/^Club Hybrid (6:5\d|7:0\d)$/);
+    const race = (await dash("?asOf=2026-09-19")).tiles.recent_sessions.value[0];
+    expect(race).toMatchObject({ localDate: "2026-09-19", title: "HYROX 2026 Dallas", primary: "HYROX 2026 Dallas 1:14:32" });
+    expect(race.sources.sort()).toEqual(["apple_health", "hyrox"]);
   });
 
   it("training mix sums to 1", async () => {
     const v = (await dash()).tiles.training_mix.value;
-    expect(Object.keys(v).sort()).toEqual(["metcon", "mixed", "row", "run", "strength"]);
+    expect(Object.keys(v).sort()).toEqual(["metcon", "mixed", "race", "row", "run", "strength"]);
     expect(Object.values(v).reduce((a: number, b: any) => a + b, 0)).toBeCloseTo(1, 5);
   });
 
@@ -152,10 +155,12 @@ describe("records, recovery, heatmap, review", () => {
   it("record book scopes bests to the athlete's history", async () => {
     const t = (await dash()).tiles.record_book;
     const row = (b: string) => t.value.find((r: any) => r.benchmark === b);
-    expect(row("fran")).toMatchObject({ best: 261, bestDate: "2026-10-20", attempts: 9, unit: "s" });
-    expect(row("deadlift_1rm")).toMatchObject({ best: 385, bestDate: "2026-10-22", unit: "lb" });
-    expect(row("back_squat_5x5")).toMatchObject({ best: 245 });
-    expect(row("row_2k")).toMatchObject({ best: 448, bestDate: "2026-04-16", latest: 455 });
+    expect(row("hyrox_total")).toMatchObject({ best: 4472, bestDate: "2026-09-19", attempts: 4, latest: 4472, unit: "s" });
+    expect(row("run_5k_tt")).toMatchObject({ best: 1135, bestDate: "2026-04-16", unit: "s" });
+    // The one-off 295 day is still his best set; the story engine treats it as a decoy, the record book doesn't.
+    expect(row("deadlift_4x4")).toMatchObject({ best: 295, bestDate: "2025-11-17", latest: 285, unit: "lb" });
+    expect(row("amrap_40").unit).toBe("rounds");
+    expect(row("amrap_40").best).toBe(Math.max(...row("amrap_40").series.map((p: any) => p.value)));
     expect(t.context).toBe("best in your history since 2024-10-28");
   });
 
@@ -184,7 +189,7 @@ describe("records, recovery, heatmap, review", () => {
     const t = (await dash()).tiles.review_queue;
     expect(t.value.items.map((i: any) => [i.localDate, i.kind])).toEqual([
       ["2026-10-02", "confirm"],
-      ["2026-10-17", "merge_split"],
+      ["2026-10-14", "merge_split"],
       ["2026-10-18", "pick"],
     ]);
     expect(t.value.count).toBe(3);

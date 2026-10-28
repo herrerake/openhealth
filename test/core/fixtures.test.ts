@@ -26,15 +26,31 @@ describe("two-year fixtures", () => {
     expect(maxLocalDate(expected.canonicalWorkouts)).toBe("2026-10-25");
   });
 
-  it("uses PST in winter and PDT in summer", () => {
+  it("uses CST in winter and CDT in summer (Austin)", () => {
     const starts = appleWorkoutStarts();
-    expect(starts.some((s) => s.startsWith("2025-01-") && s.endsWith("-0800"))).toBe(true);
-    expect(starts.some((s) => s.startsWith("2025-07-") && s.endsWith("-0700"))).toBe(true);
+    expect(starts.some((s) => s.startsWith("2025-01-") && s.endsWith("-0600"))).toBe(true);
+    expect(starts.some((s) => s.startsWith("2025-07-") && s.endsWith("-0500"))).toBe(true);
+  });
+
+  it("records the true block times of every watch workout", () => {
+    const kinds = new Set(expected.timelines.map((t: any) => t.kind));
+    expect([...kinds].sort()).toEqual(["class", "open_gym", "race", "run", "track"]);
+    const race = expected.timelines.find((t: any) => t.kind === "race" && t.localDate === "2026-09-19");
+    expect(race.blocks.filter((b: any) => /^Running \d$/.test(b.label))).toHaveLength(8);
+    expect(race.blocks.map((b: any) => b.label)).toContain("Wall Balls");
+    const cls = expected.timelines.find((t: any) => t.kind === "class" && t.localDate === "2026-10-19");
+    expect(cls.blocks.map((b: any) => b.label)).toEqual(["Warm Up", "A. Deadlift", "B. Push Press", "C. Circuit", "D. FC finisher"]);
+  });
+
+  it("anchors each race on its official result", () => {
+    const races = expected.canonicalWorkouts.filter((c: any) => c.kind === "race");
+    expect(races.map((c: any) => c.localDate)).toEqual(["2025-03-22", "2025-09-20", "2026-03-21", "2026-09-19"]);
+    expect(races.every((c: any) => c.sources.hyroxResultId && c.sources.appleWorkouts.length === 1)).toBe(true);
   });
 
   it("keeps the 12 edge cases in the final four weeks", () => {
     const last4 = expected.canonicalWorkouts.filter((c: any) => c.localDate >= "2026-09-28");
-    expect(last4.find((c: any) => c.localDate === "2026-10-17").status).toBe("review_required");
+    expect(last4.find((c: any) => c.localDate === "2026-10-14").status).toBe("review_required");
     expect(
       expected.duplicates.some((d: any) => d.duplicate.startsWith("Strava|") && d.duplicate.includes("2026-10-04")),
     ).toBe(true);

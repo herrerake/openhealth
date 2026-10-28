@@ -5,9 +5,9 @@ import { isProviderId, registry } from "../../connectors/registry";
 import type { ProviderId } from "../../core/types";
 import type { AppEnv } from "../env";
 import { mintMockCode, mintMockToken, verifyMockCode } from "./oauth";
-import { MOCK_MINDBODY_CLIENT, MOCK_WODUP_ATHLETE } from "./providers";
+import { MOCK_HYROX_ATHLETE, MOCK_MINDBODY_CLIENT, MOCK_WODUP_ATHLETE } from "./providers";
 
-const EXTERNAL_IDS: Record<string, string> = { wodup: MOCK_WODUP_ATHLETE, mindbody: MOCK_MINDBODY_CLIENT };
+const EXTERNAL_IDS: Record<string, string> = { wodup: MOCK_WODUP_ATHLETE, mindbody: MOCK_MINDBODY_CLIENT, hyrox: MOCK_HYROX_ATHLETE };
 
 export const mockOAuth = new Hono<AppEnv>();
 

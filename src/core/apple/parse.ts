@@ -1,5 +1,5 @@
 import { SaxesParser } from "saxes";
-import type { AppleDailyPayload, AppleWorkoutPayload, HrAggregatePayload } from "../normalize";
+import type { AppleDailyPayload, AppleWorkoutPayload, HrAggregatePayload, HrSeriesPayload } from "../normalize";
 import { parseAppleDate } from "../time";
 import type { SourceRecordInput } from "../types";
 import { Sha256 } from "./sha256";
@@ -7,7 +7,9 @@ import { Sha256 } from "./sha256";
 // Two-pass streaming parser for the Health app's export.xml.
 // Pass 1 hashes the file and collects workout windows (workouts come after the
 // heart-rate records in the file). Pass 2 emits workouts and daily metrics, and
-// aggregates heart-rate samples per workout window. Raw samples never leave here.
+// aggregates heart-rate samples per workout window: an average and max, plus a
+// 15-second series for the session timeline (D-039). Samples outside workouts,
+// and the raw samples themselves, never leave here.
 
 const HEART_RATE = "HKQuantityTypeIdentifierHeartRate";
 const DAILY_TYPES = new Set([
@@ -16,6 +18,7 @@ const DAILY_TYPES = new Set([
   "HKCategoryTypeIdentifierSleepAnalysis",
 ]);
 const GAP_MS = 5 * 60_000;
+const SERIES_STEP_S = 15;
 const MAX_WORKOUT_MS = 24 * 3_600_000;
 
 const DURATION_TO_S: Record<string, number> = { s: 1, min: 60, hr: 3600 };
@@ -37,6 +40,8 @@ interface Window {
   max: number;
   lastSample: number | null;
   gaps: number;
+  /** 15-second buckets from the workout start: [sum, count]. */
+  buckets: Map<number, [number, number]>;
 }
 
 export interface ParseOptions {
@@ -92,7 +97,7 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
   const pass1: Handlers = {
     open(name, a) {
       if (name === "Workout" && a.startDate && a.endDate) {
-        windows.push({ key: workoutKey(a), start: instant(a.startDate), end: instant(a.endDate), sum: 0, samples: 0, max: 0, lastSample: null, gaps: 0 });
+        windows.push({ key: workoutKey(a), start: instant(a.startDate), end: instant(a.endDate), sum: 0, samples: 0, max: 0, lastSample: null, gaps: 0, buckets: new Map() });
       }
     },
     close() {},
@@ -109,7 +114,12 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
   // Pass 2: records, workouts, and heart-rate aggregation.
   const queue: SourceRecordInput[] = [];
   const workoutTimes = new Map<string, ReturnType<typeof timing>>();
-  let current: { attrs: Attrs; metadata: Record<string, string>; statistics: AppleWorkoutPayload["statistics"] } | null = null;
+  let current: {
+    attrs: Attrs;
+    metadata: Record<string, string>;
+    statistics: AppleWorkoutPayload["statistics"];
+    segments: NonNullable<AppleWorkoutPayload["segments"]>;
+  } | null = null;
   // Element names from the root down; only direct children of <Workout> describe the workout itself
   // (nested WorkoutActivity / WorkoutRoute elements carry their own metadata and statistics).
   const stack: string[] = [];
@@ -133,6 +143,12 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
       w.sum += bpm;
       w.samples++;
       w.max = Math.max(w.max, bpm);
+      const b = Math.floor((t - w.start) / (SERIES_STEP_S * 1000));
+      const cell = w.buckets.get(b);
+      if (cell) {
+        cell[0] += bpm;
+        cell[1]++;
+      } else w.buckets.set(b, [bpm, 1]);
     }
   };
 
@@ -163,9 +179,13 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
           });
         }
       } else if (name === "Workout") {
-        current = { attrs: a, metadata: {}, statistics: {} };
+        current = { attrs: a, metadata: {}, statistics: {}, segments: [] };
       } else if (current && parent === "Workout" && name === "MetadataEntry") {
         current.metadata[a.key] = a.value;
+      } else if (current && parent === "Workout" && name === "WorkoutEvent" && /Segment|Lap/.test(a.type ?? "") && a.date) {
+        // Segments (custom workouts) and laps mark where the watch knows the effort changed.
+        const seconds = Number(a.duration ?? 0) * (DURATION_TO_S[a.durationUnit ?? "min"] ?? 60);
+        current.segments.push({ type: a.type.endsWith("Lap") ? "lap" : "segment", startUtc: parseAppleDate(a.date).utc, seconds: round1(seconds) });
       } else if (current && parent === "Workout" && name === "WorkoutStatistics") {
         const num = (v?: string) => (v == null ? undefined : Number(v));
         current.statistics[a.type] = { sum: num(a.sum), average: num(a.average), minimum: num(a.minimum), maximum: num(a.maximum), unit: a.unit };
@@ -185,6 +205,7 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
         metadata: current.metadata,
         statistics: current.statistics,
         totals: totalsOf(a, current.statistics),
+        ...(current.segments.length ? { segments: current.segments } : {}),
       };
       const t = timing(a.startDate, a.endDate);
       workoutTimes.set(workoutKey(a), t);
@@ -212,6 +233,12 @@ export async function* parseAppleExport(open: () => AsyncIterable<Uint8Array>, o
       fileSha256,
     };
     queue.push({ source: "apple_health", kind: "hr_aggregate", naturalKey: `hr:${w.key}`, payload, ...workoutTimes.get(w.key)! });
+    const series: HrSeriesPayload = {
+      workoutKey: w.key,
+      stepS: SERIES_STEP_S,
+      points: [...w.buckets].sort((x, y) => x[0] - y[0]).map(([b, [sum, n]]) => [b * SERIES_STEP_S, Math.round(sum / n)]),
+    };
+    queue.push({ source: "apple_health", kind: "hr_series", naturalKey: `hrs:${w.key}`, payload: series, ...workoutTimes.get(w.key)! });
   }
   while (queue.length) yield queue.splice(0, batchSize);
 }

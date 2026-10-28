@@ -10,6 +10,7 @@ ESPN-style coverage for amateur athletes. OpenHealth points a camera at the ever
 | [docs/PRD.md](docs/PRD.md) | What we build, the non-negotiable principles (§4), the release plan (§5) |
 | [docs/SPEC.md](docs/SPEC.md), [docs/SPEC-STORY-ENGINE.md](docs/SPEC-STORY-ENGINE.md) | How it's built |
 | [docs/STORY-PLAYBOOK.md](docs/STORY-PLAYBOOK.md) | Story craft and the analyst/editor/writer/fact-checker rules |
+| [docs/VOICE.md](docs/VOICE.md) | How OpenHealth sounds: tone by context, word list, copy checklist for any user-facing text |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Every decision so far. Append new ones at the bottom; don't relitigate `decided` rows without asking. |
 
 ## Non-negotiables (full list: PRD §4)

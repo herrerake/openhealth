@@ -8,7 +8,7 @@ describe("athlete session", () => {
     const r = await SELF.fetch("http://x/api/athletes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Alex Rivera", primarySport: "crossfit", tz: "America/Los_Angeles" }),
+      body: JSON.stringify({ name: "Henry Walsh", primarySport: "hyrox", tz: "America/Chicago" }),
     });
     expect(r.status).toBe(201);
     expect(r.headers.get("set-cookie")).toMatch(/oh_session=/);
@@ -26,7 +26,7 @@ describe("athlete session", () => {
 
   it("returns the current athlete", async () => {
     const me = await (await authedFetch("/api/me")).json();
-    expect(me).toMatchObject({ name: "Alex Rivera", primarySport: "crossfit", tz: "America/Los_Angeles", connections: [] });
+    expect(me).toMatchObject({ name: "Henry Walsh", primarySport: "hyrox", tz: "America/Chicago", connections: [] });
   });
 
   it("rejects requests without a session", async () => {

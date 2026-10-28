@@ -9,7 +9,7 @@ test("shows live progress and lands on the dashboard", async ({ page }) => {
   await page.getByRole("button", { name: "Sync 3 accounts" }).click();
   await expect(page).toHaveURL(/onboarding\/sync/);
   await expect(page.getByText(/WodUp · \d+ sessions/)).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText(/468 workouts · 9 duplicates removed · 1 need review/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/449 workouts · 1 duplicates? removed · 1 need review/)).toBeVisible({ timeout: 60_000 });
   expect(polled).toBe(0); // progress arrived over the agent WebSocket, not the polling fallback
   await page.getByRole("link", { name: "See your dashboard" }).click();
   await expect(page).toHaveURL(/\/dashboard\/?$/);

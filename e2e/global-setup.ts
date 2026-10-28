@@ -12,7 +12,7 @@ const wrangler = (...args: string[]) =>
 export default async function globalSetup(): Promise<void> {
   if (!existsSync(join(ROOT, "fixtures/data/expected.json"))) execFileSync("npm", ["run", "fixtures"], { cwd: ROOT, stdio: "pipe" });
   wrangler("d1", "migrations", "apply", "openhealth", "--local");
-  for (const key of ["wodup/training_sessions.json", "mindbody/client_visits.json"]) {
+  for (const key of ["wodup/training_sessions.json", "mindbody/client_visits.json", "hyrox/results.json"]) {
     wrangler("r2", "object", "put", `openhealth-raw/mock/${key}`, "--file", join(ROOT, "fixtures/data", key), "--local");
   }
 }

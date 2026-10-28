@@ -1,10 +1,252 @@
 ---
+import { ArrowRightIcon, ChartLineIcon, LockIcon, NewspaperIcon, PlugIcon, ShieldCheckIcon } from "lucide-react";
+import { buttonVariants } from "../components/ui/button";
 import App from "../layouts/App.astro";
+
+// Copy follows docs/VOICE.md (D-040): the "broadcast" register. Henry's race results are the demo
+// athlete's, from fixtures/README.md, and are labeled as demo wherever they appear.
+const RACES = [
+  { date: "Mar 2025", event: "Houston", time: "1:28:14", place: "97 of 211" },
+  { date: "Sep 2025", event: "Dallas", time: "1:21:40", place: "71 of 248" },
+  { date: "Mar 2026", event: "Houston", time: "1:24:55", place: "88 of 260" },
+  { date: "Sep 2026", event: "Dallas", time: "1:14:32", place: "29 of 271" },
+];
+
+const TICKER = [
+  ...RACES.map((r) => `${r.event} ${r.date.slice(-4)} · ${r.time}`),
+  "16 official splits per race",
+  "Every number computed by code",
+  "Read-only connections",
+  "Nothing shared without your OK",
+];
+
+const COVERAGE = [
+  { pro: "The stats desk", pros: "Every number online, any time, for anyone who cares.", you: "One history you own: classes, runs, races and your watch, matched session by session." },
+  { pro: "Game day", pros: "Official results, split by split, broken down on air.", you: "All 16 HYROX splits laid over your heart rate, race against race." },
+  { pro: "The feature", pros: "A writer who tells you what the season meant.", you: "Stories built from your own data and your own notes. Every claim checked." },
+  { pro: "The presser", pros: "Someone asks how it felt and what changed.", you: "Your own words, dated and on the record. Never invented." },
+];
+
+const PILLARS = [
+  { n: "01", title: "Bring every app", body: "WodUp, Mindbody, your watch and official race results. Read-only, and you can disconnect anytime.", Icon: PlugIcon },
+  { n: "02", title: "See every split", body: "Every station and every run, laid over your heart rate. Race against race, block against block.", Icon: ChartLineIcon },
+  { n: "03", title: "Read your story", body: "Features built from your own data and your own notes. No invented quotes, no made-up feelings.", Icon: NewspaperIcon },
+  { n: "04", title: "Share on your terms", body: "Followers see only what you approve. Your coach, your club, your family. Your call.", Icon: ShieldCheckIcon },
+];
+
+const display = "font-display font-semibold uppercase tracking-[-0.03em] text-balance";
+const eyebrow = "text-[11px] font-semibold tracking-[0.18em] uppercase";
 ---
 
-<App title="OpenHealth">
-  <p class="text-muted-foreground text-sm">Loading…</p>
+<App title="Your training, covered like a pro's" full description="OpenHealth pulls your classes, runs, watch data and official HYROX splits into one history you own, then covers it like a sports desk covers a pro.">
+  <a slot="header" href="/login" data-nav-cta class={buttonVariants({ variant: "outline", size: "sm", className: "rounded-full px-4" })}>Log in</a>
+
+  <!-- Hero: the broadcast open. -->
+  <section class="broadcast relative overflow-hidden">
+    <div class="broadcast-grid pointer-events-none absolute inset-0" aria-hidden="true"></div>
+    <div class="relative mx-auto grid max-w-6xl gap-12 px-4 pt-16 pb-14 sm:px-6 sm:pt-24 lg:grid-cols-[1.25fr_1fr] lg:items-center lg:gap-16 lg:pb-20">
+      <div>
+        <p class:list={[eyebrow, "text-brand animate-rise flex items-center gap-2"]}>
+          <span class="bg-brand inline-block size-1.5 rounded-full" aria-hidden="true"></span> Coverage for amateur athletes
+        </p>
+        <h1 class:list={[display, "animate-rise mt-5 text-[2.75rem] leading-[0.92] [animation-delay:60ms] sm:text-[4.25rem] lg:text-[5rem]"]}>
+          Your training, covered like a <span class="text-brand">pro's.</span>
+        </h1>
+        <p class="text-muted-foreground animate-rise mt-7 max-w-xl text-[17px] leading-relaxed text-pretty [animation-delay:120ms]">
+          Pros get a stats desk, a combine and a post-race presser. You get a dozen apps that don't talk to each other. OpenHealth pulls your classes, track sessions, watch data and official HYROX splits into one history you own. Then it covers you the way a sports desk covers a pro.
+        </p>
+        <div class="animate-rise mt-9 flex flex-wrap items-center gap-3 [animation-delay:180ms]">
+          <a href="/login" class={buttonVariants({ variant: "brand", size: "xl", className: "group" })}>
+            Start your history <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </a>
+          <a href="#how" class={buttonVariants({ variant: "ghost", size: "xl", className: "text-muted-foreground hover:bg-white/5 hover:text-foreground" })}>See how it works</a>
+        </div>
+      </div>
+
+      <!-- The scoreboard: four real (demo) results, the hero arc. -->
+      <figure class="animate-rise border-border bg-card/80 rounded-2xl border p-5 shadow-[0_30px_80px_-30px_oklch(0.91_0.2_124/25%)] backdrop-blur [animation-delay:240ms] sm:p-6">
+        <figcaption class="flex items-start justify-between gap-4">
+          <div>
+            <p class:list={[eyebrow, "text-muted-foreground"]}>HYROX · Men's Open</p>
+            <p class="font-display mt-1 text-lg font-semibold tracking-tight">Henry Walsh</p>
+          </div>
+          <span class="border-border text-muted-foreground rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.14em] uppercase">Demo athlete</span>
+        </figcaption>
+        <table class="mt-5 w-full text-sm tabular-nums">
+          <thead>
+            <tr class="text-muted-foreground text-left text-[11px] tracking-wide uppercase">
+              <th class="pb-2 font-medium">Race</th>
+              <th class="pb-2 font-medium">Time</th>
+              <th class="pb-2 text-right font-medium">Age group</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              RACES.map((r, i) => {
+                const latest = i === RACES.length - 1;
+                return (
+                  <tr class:list={["border-border border-t", latest && "text-brand"]}>
+                    <td class="py-3">
+                      <span class:list={["font-medium", latest ? "text-brand" : "text-foreground"]}>{r.event}</span>
+                      <span class="text-muted-foreground ml-2 text-xs">{r.date}</span>
+                    </td>
+                    <td class:list={["font-display py-3 text-[17px] font-semibold tracking-tight", latest ? "text-brand" : "text-foreground"]}>{r.time}</td>
+                    <td class="text-muted-foreground py-3 text-right text-xs">{r.place}</td>
+                  </tr>
+                );
+              })
+            }
+          </tbody>
+        </table>
+        <p class="border-border text-muted-foreground mt-2 border-t pt-4 text-xs leading-relaxed">
+          Four races, two years, one history. <span class="text-foreground font-medium">13:42 faster</span> from the first race to the fourth.
+        </p>
+      </figure>
+    </div>
+
+    <!-- Lower-third ticker. -->
+    <div class="border-border relative overflow-hidden border-t bg-black/30" aria-hidden="true">
+      <div class="animate-ticker flex w-max">
+        {
+          [0, 1].map(() => (
+            <ul class="flex shrink-0 items-center">
+              {TICKER.map((t) => (
+                <li class="text-muted-foreground flex items-center gap-6 px-6 py-3 text-[11px] font-semibold tracking-[0.16em] whitespace-nowrap uppercase">
+                  <span class="bg-brand size-1 rounded-full" />
+                  {t}
+                </li>
+              ))}
+            </ul>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- Pros vs you: the coverage gap. -->
+  <section class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+    <div class="max-w-2xl">
+      <p class:list={[eyebrow, "text-brand-ink"]}>The coverage gap</p>
+      <h2 class:list={[display, "mt-4 text-[2.25rem] leading-[0.95] sm:text-[3.25rem]"]}>Pros get a newsroom. You train just as hard.</h2>
+      <p class="text-muted-foreground mt-5 text-[17px] leading-relaxed text-pretty">
+        Plenty of amateurs log more data than a pro did twenty years ago. What's missing is someone to collect it, make sense of it and tell the story back. That's the job OpenHealth does.
+      </p>
+    </div>
+    <div class="mt-14 grid gap-px overflow-hidden rounded-2xl border bg-border sm:grid-cols-2">
+      {
+        COVERAGE.map((c) => (
+          <article class="bg-card grid gap-4 p-6 sm:p-8">
+            <h3 class="font-display text-xl font-semibold tracking-tight">{c.pro}</h3>
+            <dl class="grid gap-3 text-[15px] leading-relaxed">
+              <div class="grid grid-cols-[4.5rem_1fr] gap-3">
+                <dt class:list={[eyebrow, "text-muted-foreground pt-1"]}>Pros</dt>
+                <dd class="text-muted-foreground">{c.pros}</dd>
+              </div>
+              <div class="grid grid-cols-[4.5rem_1fr] gap-3">
+                <dt class:list={[eyebrow, "text-brand-ink pt-1"]}>You</dt>
+                <dd>{c.you}</dd>
+              </div>
+            </dl>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- How it works: four pillars. -->
+  <section id="how" class="bg-muted/50 scroll-mt-14 border-y">
+    <div class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+      <div class="flex flex-wrap items-end justify-between gap-6">
+        <div class="max-w-2xl">
+          <p class:list={[eyebrow, "text-brand-ink"]}>How it works</p>
+          <h2 class:list={[display, "mt-4 text-[2.25rem] leading-[0.95] sm:text-[3.25rem]"]}>Every session. Every split. One history.</h2>
+        </div>
+        <p class="text-muted-foreground max-w-sm text-[15px] leading-relaxed">Built first for HYROX, where every race comes with 16 official splits.</p>
+      </div>
+      <ol class="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {
+          PILLARS.map(({ n, title, body, Icon }) => (
+            <li class="bg-card group relative overflow-hidden rounded-2xl border p-6 transition-colors hover:border-foreground/20">
+              <div class="flex items-center justify-between">
+                <span class="font-display text-muted-foreground text-sm font-semibold tabular-nums">{n}</span>
+                <span class="bg-brand text-brand-foreground grid size-9 place-items-center rounded-xl">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+              </div>
+              <h3 class="font-display mt-10 text-xl font-semibold tracking-tight">{title}</h3>
+              <p class="text-muted-foreground mt-2 text-[15px] leading-relaxed">{body}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- Truth as the edge. -->
+  <section class="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+    <div class="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:gap-20">
+      <div>
+        <p class:list={[eyebrow, "text-brand-ink"]}>On the record</p>
+        <h2 class:list={[display, "mt-4 text-[2.25rem] leading-[0.95] sm:text-[3.25rem]"]}>We show the split.</h2>
+        <p class="text-muted-foreground mt-5 text-[17px] leading-relaxed text-pretty">
+          Code computes every number, and each one traces back to the record it came from. AI writes the words around them, never the facts. Every chart can tell you how it was calculated.
+        </p>
+      </div>
+      <ul class="grid gap-3">
+        {
+          [
+            ["A best is always scoped.", "“Fastest of your four HYROX races,” never “your best ever.”"],
+            ["Quotes are yours or nothing.", "Only your own notes and answers, dated and attributed."],
+            ["Patterns, not promises.", "We show what lined up with what. We don't claim what caused it."],
+          ].map(([title, body]) => (
+            <li class="bg-card flex gap-4 rounded-2xl border p-5">
+              <span class="bg-brand mt-2 size-1.5 shrink-0 rounded-full" aria-hidden="true" />
+              <div>
+                <p class="font-medium">{title}</p>
+                <p class="text-muted-foreground mt-1 text-[15px] leading-relaxed">{body}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- Ownership and the closing call. -->
+  <section class="broadcast relative overflow-hidden">
+    <div class="broadcast-grid pointer-events-none absolute inset-0" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+      <p class:list={[eyebrow, "text-brand flex items-center gap-2"]}>
+        <LockIcon className="size-3.5" aria-hidden="true" /> Your data
+      </p>
+      <h2 class:list={[display, "mt-4 max-w-3xl text-[2.5rem] leading-[0.92] sm:text-[4rem]"]}>Your data. Your story. Your call.</h2>
+      <div class="mt-10 grid gap-6 text-[15px] leading-relaxed sm:grid-cols-3">
+        <p class="text-muted-foreground"><span class="text-foreground font-medium">Read-only connections.</span> We read from your apps and never write back.</p>
+        <p class="text-muted-foreground"><span class="text-foreground font-medium">You approve what's shared.</span> Nothing reaches a follower until you say so.</p>
+        <p class="text-muted-foreground"><span class="text-foreground font-medium">Yours to take or delete.</span> Export your history or delete it, anytime.</p>
+      </div>
+      <div class="border-border mt-16 flex flex-wrap items-center justify-between gap-6 border-t pt-10">
+        <p class="font-display max-w-md text-2xl font-semibold tracking-tight text-balance">Your first HYROX or your tenth, your coverage starts with what you've already logged.</p>
+        <a href="/login" class={buttonVariants({ variant: "brand", size: "xl", className: "group" })}>
+          Start your history <ArrowRightIcon className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-xs sm:px-6">
+    <p class="text-muted-foreground">© 2026 OpenHealth</p>
+    <p class="text-muted-foreground">Henry Walsh is a demo athlete. His data is synthetic.</p>
+  </footer>
+
   <script>
-    fetch("/api/me").then((r) => location.replace(r.ok ? "/dashboard" : "/onboarding"));
+    // Signed-in visitors get a straight path back to their dashboard.
+    fetch("/api/me").then((r) => {
+      if (!r.ok) return;
+      const cta = document.querySelector<HTMLAnchorElement>("[data-nav-cta]");
+      if (!cta) return;
+      cta.href = "/dashboard";
+      cta.textContent = "Dashboard";
+    });
   </script>
 </App>

@@ -11,7 +11,7 @@ const RECONCILE_FLAGS = new Set([
   "no_booking",
   "ambiguous_split_apple_workout",
 ]);
-const COMPARED_KINDS = new Set(["visit", "training_session", "workout"]);
+const COMPARED_KINDS = new Set(["visit", "training_session", "workout", "race_result"]);
 
 let records: StoredSourceRecord[];
 let byId: Map<number, StoredSourceRecord>;
@@ -56,6 +56,7 @@ function expectedComparable() {
         ...(c.sources.mindbodyVisitId ? [`visit:${c.sources.mindbodyVisitId}`] : []),
         ...(c.sources.wodupSessionId ? [`session:${c.sources.wodupSessionId}`] : []),
         ...c.sources.appleWorkouts.map((k: string) => `workout:${k}`),
+        ...(c.sources.hyroxResultId ? [`race:${c.sources.hyroxResultId}`] : []),
       ].sort(),
     }))
     .sort((a: any, b: any) => a.localDate.localeCompare(b.localDate) || a.sources.join().localeCompare(b.sources.join()));
@@ -91,28 +92,40 @@ describe("reconcile", () => {
   });
 
   it("attaches results and heart-rate aggregates as supporting records", () => {
-    const fran = r.sessions.find((s) => s.localDate === "2026-10-20" && s.kind === "class")!;
-    const kinds = fran.sources.map((x) => byId.get(x.recordId)!.kind).sort();
+    const monday = r.sessions.find((s) => s.localDate === "2026-10-19" && s.kind === "class")!;
+    const kinds = [...new Set(monday.sources.map((x) => byId.get(x.recordId)!.kind))].sort();
     expect(kinds).toEqual(["hr_aggregate", "result", "training_session", "visit", "workout"]);
-    expect(fran.sources.find((x) => byId.get(x.recordId)!.kind === "visit")!.role).toBe("anchor");
+    expect(monday.sources.find((x) => byId.get(x.recordId)!.kind === "visit")!.role).toBe("anchor");
   });
 
-  it("categorizes sessions by their primary result", () => {
+  it("categorizes sessions by their first scored block, not the warm-up", () => {
     expect(r.sessions.find((s) => s.localDate === "2026-10-19")!.category).toBe("strength");
-    expect(r.sessions.find((s) => s.localDate === "2026-10-20" && s.kind === "class")!.category).toBe("metcon");
+    expect(r.sessions.find((s) => s.localDate === "2026-10-21" && s.kind === "class")!.category).toBe("metcon");
+    expect(r.sessions.find((s) => s.localDate === "2026-10-22")!.category).toBe("run");
     expect(r.sessions.find((s) => s.localDate === "2026-10-25")!.category).toBe("run");
   });
 
+  it("anchors each race on its HYROX result and flags the watch's indoor distance", () => {
+    const races = r.sessions.filter((s) => s.kind === "race");
+    expect(races.map((s) => s.localDate)).toEqual(["2025-03-22", "2025-09-20", "2026-03-21", "2026-09-19"]);
+    for (const race of races) {
+      expect(race.category).toBe("race");
+      expect(race.flags).toContain("watch_distance_unreliable_indoors");
+      expect(race.sources.find((x) => byId.get(x.recordId)!.kind === "race_result")!.role).toBe("anchor");
+      expect(race.sources.some((x) => byId.get(x.recordId)!.kind === "workout")).toBe(true);
+    }
+  });
+
   it("a merge decision survives re-run", () => {
-    const split = r.sessions.find((s) => s.status === "review_required" && s.localDate === "2026-10-17")!;
+    const split = r.sessions.find((s) => s.status === "review_required" && s.localDate === "2026-10-14")!;
     const again = reconcile({ records, siteTz: TZ, decisions: [{ scopeKey: split.key, action: "merge", payload: {} }] });
     expect(again.sessions.find((s) => s.key === split.key)!.status).toBe("confirmed");
   });
 
   it("a split decision separates the watch workouts", () => {
-    const split = r.sessions.find((s) => s.status === "review_required" && s.localDate === "2026-10-17")!;
+    const split = r.sessions.find((s) => s.status === "review_required" && s.localDate === "2026-10-14")!;
     const again = reconcile({ records, siteTz: TZ, decisions: [{ scopeKey: split.key, action: "split", payload: {} }] });
-    const day = again.sessions.filter((s) => s.localDate === "2026-10-17");
+    const day = again.sessions.filter((s) => s.localDate === "2026-10-14");
     expect(day).toHaveLength(2);
     expect(day.every((s) => s.status === "confirmed")).toBe(true);
   });

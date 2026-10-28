@@ -1,4 +1,5 @@
 import type { ProviderId } from "../core/types";
+import { syncHyrox } from "./hyrox";
 import { syncMindbody } from "./mindbody";
 import { syncStub } from "./stubs";
 import type { Connector, ScopeDescription } from "./types";
@@ -37,7 +38,15 @@ export const registry: Record<ProviderId, Connector> = {
     status: "available",
     sync: syncMindbody,
   },
-  hyrox: { id: "hyrox", kind: "oauth", displayName: "HYROX", category: "races", scopes: scopes("Race results and splits"), status: "available", sync: syncStub },
+  hyrox: {
+    id: "hyrox",
+    kind: "oauth",
+    displayName: "HYROX",
+    category: "races",
+    scopes: scopes("Race results, ranks and splits"),
+    status: "available",
+    sync: syncHyrox,
+  },
   race_results: {
     id: "race_results",
     kind: "oauth",

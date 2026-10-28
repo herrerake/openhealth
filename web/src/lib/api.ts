@@ -10,12 +10,12 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 /**
- * Sends the athlete to onboarding when their session is missing or no longer valid.
+ * Sends the athlete to log in when their session is missing or no longer valid.
  * Returns true when it did; any other error is the caller's to show.
  */
 export function onUnauthorized(e: unknown): boolean {
   if (!(e instanceof UnauthorizedError)) return false;
-  location.replace("/onboarding");
+  location.replace("/login");
   return true;
 }
 
@@ -37,6 +37,9 @@ export interface Provider {
 }
 
 export const getMe = () => call<Me>("/api/me");
+/** Throws UnauthorizedError when the email and password don't match. */
+export const logIn = (email: string, password: string) =>
+  call<{ next: string }>("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
 export const getProviders = () => call<Provider[]>("/api/providers");
 export const createAthlete = (body: { name: string; primarySport: string; tz: string }) =>
   call<{ id: string }>("/api/athletes", { method: "POST", body: JSON.stringify(body) });
@@ -44,6 +47,30 @@ export const startSync = (providers?: string[]) =>
   call<{ runId: string }>("/api/sync", { method: "POST", body: JSON.stringify(providers ? { providers } : {}) });
 export const getDashboard = <T>() => call<T>("/api/dashboards/home");
 export const getSession = <T>(key: string) => call<T>(`/api/sessions/${encodeURIComponent(key)}`);
+
+export interface TimelineBlock {
+  label: string;
+  prescription: string | null;
+  startS: number | null;
+  endS: number | null;
+  source: "official" | "watch" | "estimated";
+  avgHr: number | null;
+  maxHr: number | null;
+}
+export interface Timeline {
+  sessionKey: string;
+  localDate: string;
+  kind: string;
+  title: string;
+  tz: string;
+  startUtc: string;
+  method: "hyrox_splits" | "watch_segments" | "duration_match" | "ai_match" | "whole_workout" | "none";
+  hr: { stepS: number; points: [number, number][] } | null;
+  blocks: TimelineBlock[];
+  summary: { minutes: number; avgHr: number | null; maxHr: number | null } | null;
+  spoken: string;
+}
+export const getTimeline = (key: string) => call<Timeline>(`/api/sessions/${encodeURIComponent(key)}/timeline`);
 export const postReview = <T>(key: string, body: { action: string; payload?: Record<string, string> }) =>
   call<T>(`/api/review/${encodeURIComponent(key)}`, { method: "POST", body: JSON.stringify(body) });
 export const uploadAppleBatch = (fileSha256: string, records: unknown[]) =>

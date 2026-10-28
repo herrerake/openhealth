@@ -9,13 +9,13 @@ import { fixtureSessions, fixtureVisits, seedMockFixtures } from "./seed";
 
 beforeEach(seedMockFixtures);
 
-const EXTERNAL: Record<string, string> = { wodup: "ath_Ax7Rv2Lq", mindbody: "100015482" };
+const EXTERNAL: Record<string, string> = { wodup: "ath_Hn4Rx8Yk", mindbody: "100015482", hyrox: "hx_walsh_henry" };
 
 async function ctx(provider: ProviderId, fetchImpl?: typeof fetch): Promise<SyncContext> {
   return {
     athleteId: "a1",
     credentials: { token: await mintMockToken(provider, env.SESSION_SECRET), externalId: EXTERNAL[provider] ?? "demo" },
-    siteTz: "America/Los_Angeles",
+    siteTz: "America/Chicago",
     fetch: fetchImpl ?? internalFetch(env),
     baseUrl: mockBaseUrl(provider),
   };
@@ -40,7 +40,7 @@ describe("WodUp connector", () => {
   it("dates results by the WOD day and stores UTC times", async () => {
     const recs = await collect(registry.wodup.sync!(await ctx("wodup")));
     const loggedLate = recs.find((r) => r.kind === "result" && r.localDate === "2026-10-02" && r.startUtc! > "2026-10-03")!;
-    expect(loggedLate.startUtc).toBe("2026-10-03T02:40:00Z");
+    expect(loggedLate.startUtc).toBe("2026-10-03T00:40:00Z");
   });
 
   it("an open-gym result after 5 pm keeps its local date", async () => {
@@ -70,8 +70,18 @@ describe("Mindbody connector", () => {
     const recs = await collect(registry.mindbody.sync!(await ctx("mindbody")));
     const winter = recs.find((r) => r.localDate === "2025-01-06")!;
     const summer = recs.find((r) => r.localDate === "2025-07-07")!;
-    expect(winter.startUtc).toBe("2025-01-06T14:00:00Z");
-    expect(summer.startUtc).toBe("2025-07-07T13:00:00Z");
+    expect(winter.startUtc).toBe("2025-01-06T13:00:00Z");
+    expect(summer.startUtc).toBe("2025-07-07T12:00:00Z");
+  });
+});
+
+describe("HYROX connector", () => {
+  it("yields one race record per result, spanning wave start to finish", async () => {
+    const recs = await collect(registry.hyrox.sync!(await ctx("hyrox")));
+    expect(recs.map((r) => r.localDate).sort()).toEqual(["2025-03-22", "2025-09-20", "2026-03-21", "2026-09-19"]);
+    const dallas = recs.find((r) => r.localDate === "2026-09-19")!;
+    expect(dallas).toMatchObject({ source: "hyrox", kind: "race_result", startUtc: "2026-09-19T17:10:00Z", endUtc: "2026-09-19T18:24:32Z" });
+    expect((dallas.payload as any).workoutSummary).toHaveLength(19);
   });
 });
 
