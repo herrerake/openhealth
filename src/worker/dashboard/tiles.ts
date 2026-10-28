@@ -1,4 +1,4 @@
-import { formatPercent, formatRounds, formatTime } from "../../core/format";
+import { formatLoad, formatPercent, formatRounds, formatTime } from "../../core/format";
 import { runningEconomy } from "./runningEconomy";
 import type { TileEnvelope, TileType } from "./spec";
 
@@ -291,16 +291,86 @@ async function recovery(ctx: TileContext, kind: "rhr_3d" | "hrv_3d"): Promise<Ti
   };
 }
 
-const BENCHMARKS = [
+export const BENCHMARKS = [
   { benchmark: "hyrox_total", label: "HYROX finish", unit: "s", better: "lower" },
   { benchmark: "run_5k_tt", label: "5k time trial", unit: "s", better: "lower" },
   { benchmark: "amrap_40", label: "40-min AMRAP", unit: "rounds", better: "higher" },
   { benchmark: "deadlift_4x4", label: "Deadlift 4x4", unit: "lb", better: "higher" },
 ] as const;
 
+type BenchmarkDef = (typeof BENCHMARKS)[number];
+
+const RECORD_DESCRIPTION =
+  "Your best result per benchmark at the same scaling, among everything you've imported. Times: lower is better; loads: higher is better.";
+
+const beats = (b: BenchmarkDef, x: number, y: number) => (b.better === "lower" ? x < y : x > y);
+
+function formatValue(b: BenchmarkDef, v: number): string {
+  return b.unit === "s" ? formatTime(v) : b.unit === "rounds" ? formatRounds(v) : formatLoad(v);
+}
+
+export interface RecordAttempt {
+  date: string;
+  value: number;
+  sessionKey: string | null;
+  title: string;
+  /** A new best at the time: better than every attempt before it. The first attempt isn't one. */
+  pr: boolean;
+  /** The best so far, this attempt included, for the progression line. */
+  bestSoFar: number;
+}
+
+/**
+ * Every attempt at one benchmark, oldest first, with the progression of the best.
+ * Returns null for an unknown benchmark or one with no attempts as of the day.
+ */
+export async function recordDetail(ctx: TileContext, benchmark: string) {
+  const b = BENCHMARKS.find((x) => x.benchmark === benchmark);
+  if (!b) return null;
+  const { results } = await ctx.db
+    .prepare(
+      `SELECT r.value, r.local_date, r.source_record_id, r.movement, s.session_key FROM results r LEFT JOIN sessions s ON s.id = r.session_id
+       WHERE r.athlete_id = ? AND r.generation = ? AND r.benchmark = ? AND r.local_date <= ? ORDER BY r.local_date, r.source_record_id`,
+    )
+    .bind(ctx.athleteId, ctx.generation, b.benchmark, ctx.asOf)
+    .all<{ value: number; local_date: string; source_record_id: number; movement: string; session_key: string | null }>();
+  if (!results.length) return null;
+
+  let best = results[0];
+  const attempts: RecordAttempt[] = results.map((r, i) => {
+    const pr = i > 0 && beats(b, r.value, best.value);
+    if (pr) best = r;
+    return { date: r.local_date, value: r.value, sessionKey: r.session_key, title: r.movement, pr, bestSoFar: best.value };
+  });
+  const first = attempts[0];
+  const latest = attempts.at(-1)!;
+  const change = Math.abs(best.value - first.value);
+  const changeText =
+    change === 0
+      ? "your first attempt is still your best"
+      : `${formatValue(b, change)} ${b.unit === "s" ? "faster" : "more"} than your first`;
+  const n = attempts.length;
+  return {
+    benchmark: b.benchmark,
+    label: b.label,
+    unit: b.unit,
+    better: b.better,
+    asOf: ctx.asOf,
+    best: { value: best.value, date: best.local_date, sessionKey: best.session_key },
+    latest: { value: latest.value, date: latest.date, sessionKey: latest.sessionKey },
+    first: { value: first.value, date: first.date },
+    change,
+    prCount: attempts.filter((a) => a.pr).length,
+    attempts,
+    display: formatValue(b, best.value),
+    context: `best of ${n} attempt${n === 1 ? "" : "s"} since ${first.date}`,
+    spoken: `Your best ${b.label} is ${formatValue(b, best.value)} from ${n} attempt${n === 1 ? "" : "s"}, ${changeText}.`,
+    calc: calc(RECORD_DESCRIPTION, { sourceRecordIds: results.map((r) => r.source_record_id) }),
+  };
+}
+
 async function recordBook(ctx: TileContext): Promise<TileEnvelope> {
-  const description =
-    "Your best result per benchmark at the same scaling, among everything you've imported. Times: lower is better; loads: higher is better.";
+  const description = RECORD_DESCRIPTION;
   const { results } = await ctx.db
     .prepare(
       `SELECT benchmark, value, local_date, source_record_id FROM results
@@ -317,7 +387,7 @@ async function recordBook(ctx: TileContext): Promise<TileEnvelope> {
   const rows = BENCHMARKS.flatMap((b) => {
     const series = results.filter((r) => r.benchmark === b.benchmark);
     if (!series.length) return [];
-    const best = series.reduce((x, y) => (b.better === "lower" ? (y.value < x.value ? y : x) : y.value > x.value ? y : x));
+    const best = series.reduce((x, y) => (beats(b, y.value, x.value) ? y : x));
     bestIds.push(best.source_record_id);
     const latest = series.at(-1)!;
     return [

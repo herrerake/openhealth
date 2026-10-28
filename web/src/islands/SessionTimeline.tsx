@@ -1,8 +1,9 @@
 import { ArrowLeftIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getTimeline, onUnauthorized, type Timeline, type TimelineBlock } from "@/lib/api";
+import { useWidth } from "@/lib/useWidth";
 import { cn } from "@/lib/utils";
 import { formatPace } from "../../../src/core/running";
 import RunningFormCard from "./RunningFormCard";
@@ -38,19 +39,6 @@ function bandColors(blocks: TimelineBlock[]): string[] {
   return blocks.map((b) =>
     QUIET.test(b.label) ? "var(--muted-foreground)" : REPEAT.test(b.label) ? "var(--chart-1)" : OTHER_COLORS[k++ % OTHER_COLORS.length],
   );
-}
-
-/** Width of the element in CSS pixels, so the chart draws at real size and its text never scales. */
-function useWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
-  const ref = useRef<T>(null);
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    if (!ref.current) return;
-    const ro = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width)));
-    ro.observe(ref.current);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, width];
 }
 
 function Chart({ t, colors, active, onActive }: { t: Timeline; colors: string[]; active: number | null; onActive: (i: number | null) => void }) {

@@ -1,11 +1,11 @@
-import { InfoIcon, MicIcon } from "lucide-react";
+import { ChevronRightIcon, InfoIcon, MicIcon } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getDashboard, getMe, getProviders, isConnected, type Me, onUnauthorized, type Provider } from "@/lib/api";
-import { formatLoad, formatRounds, formatSleep, formatTime } from "@/lib/format";
+import { formatBenchmark, formatSleep } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Band from "./charts/Band";
 import Heatmap, { type HeatDay } from "./charts/Heatmap";
@@ -141,9 +141,15 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
           <Context>{t.context}</Context>
           <div className="divide-y">
             {t.value.map((r: any) => {
-              const fmt = (v: number) => (r.unit === "s" ? formatTime(v) : r.unit === "rounds" ? formatRounds(v) : formatLoad(v));
+              const fmt = (v: number) => formatBenchmark(r.unit, v);
               return (
-                <div key={r.benchmark} data-testid={`record-${r.benchmark}`} className="flex items-center gap-3 py-2 text-sm">
+                <a
+                  key={r.benchmark}
+                  href={`/record/?benchmark=${encodeURIComponent(r.benchmark)}`}
+                  data-testid={`record-${r.benchmark}`}
+                  aria-label={`${r.label}: best ${fmt(r.best)}. Open the full record`}
+                  className="group -mx-2 flex items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring"
+                >
                   <span className="min-w-0 flex-1 truncate font-medium sm:w-32 sm:flex-none">{r.label}</span>
                   <span className="shrink-0">
                     <span className="font-semibold">{fmt(r.best)}</span> <span className="text-xs text-muted-foreground">{shortDate(r.bestDate)}</span>
@@ -152,7 +158,8 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
                     latest {fmt(r.latest)} · {r.attempts} attempt{r.attempts === 1 ? "" : "s"}
                   </span>
                   <Sparkline points={r.series.map((p: any) => p.value)} invert={r.unit === "s"} className="ml-auto w-14 shrink-0 sm:w-24" />
-                </div>
+                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                </a>
               );
             })}
           </div>
