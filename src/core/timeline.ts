@@ -52,14 +52,21 @@ export function priorSeconds(result: any): number {
     const sets = result.details?.sets?.length || Number(/(\d+)\s*sets/i.exec(text)?.[1]) || 4;
     return sets * 180 + 60;
   }
-  const intervals = /(\d+)\s*x\s*(\d+)\s*min[^\n]*?(\d+)\s*min\s*rest/i.exec(text);
+  // A written length wins: a time cap ("Time Cap: 25 minutes", "(16 TC)"), rounds of fixed minutes, an EMOM.
+  const cap = /time\s*cap:?\s*(\d+)\s*min|\((\d+)\s*TC\)/i.exec(text);
+  if (cap) return Number(cap[1] ?? cap[2]) * 60;
+  const intervals = /(\d+)\s*x\s*(\d+)\s*min[\s\S]*?(\d+)\s*min\s*rest/i.exec(text);
   if (intervals) {
     const [n, work, rest] = intervals.slice(1).map(Number);
     return (n * work + (n - 1) * rest) * 60;
   }
-  const rounds = /x\s*(\d+)\s*rounds/i.exec(text);
-  if (rounds) return Number(rounds[1]) * 240 + 60;
-  const carries = /(\d+)\s*x\s*\d+\s*m\b/i.exec(text);
+  const fixedRounds = /(\d+)\s*x\s*(\d+)\s*min\b/i.exec(text) ?? /(\d+)\s*rounds?\s*-?\s*every\s*(\d+)\s*min/i.exec(text);
+  if (fixedRounds) return Number(fixedRounds[1]) * Number(fixedRounds[2]) * 60;
+  const emom = /(\d+)\s*min\s*emom|emom\s*-?\s*(\d+)/i.exec(text);
+  if (emom) return Number(emom[1] ?? emom[2]) * 60;
+  const rounds = /x\s*(\d+)\s*rounds|^x\s*(\d+)/im.exec(text) ?? /(?:\d+\s*-\s*)?(\d+)\s*rounds/i.exec(text);
+  if (rounds) return Number(rounds[1] ?? rounds[2]) * 240 + 60;
+  const carries = /(\d+)\s*x\s*[\d.]+\s*m\b/i.exec(text);
   if (carries) return Number(carries[1]) * 100;
   const minutes = /(\d+)\s*mins?\b/i.exec(text);
   if (minutes) return Number(minutes[1]) * 60;

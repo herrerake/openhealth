@@ -115,10 +115,10 @@ describe("reconcile serialization", () => {
 describe("session detail", () => {
   it("explains every source", async () => {
     const d = await get(`/api/sessions/${encodeURIComponent(await recentKey("2026-09-21"))}`);
-    expect(d.sources.map((s: any) => s.source).sort()).toEqual(["apple_health", "apple_health", "mindbody", ...Array(6).fill("wodup")]);
+    expect(d.sources.map((s: any) => s.source).sort()).toEqual(["apple_health", "apple_health", "mindbody", ...Array(5).fill("wodup")]);
     expect(d.sources.every((s: any) => s.summary.length > 5)).toBe(true);
     expect(d.sources.find((s: any) => s.kind === "workout").summary).toMatch(/^Apple Watch workout/);
-    expect(d.results[0]).toMatchObject({ benchmark: "deadlift_4x4", value: 285 });
+    expect(d.results[0]).toMatchObject({ movement: "Back Squat", benchmark: null, metric: "load_lbs" });
     expect(d.notes.map((n: any) => n.text)).toContain("Wall balls unbroken in Dallas. Finally.");
   });
 

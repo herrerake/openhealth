@@ -14,6 +14,7 @@ import {
 } from "./fixture-helpers";
 
 const STORY_IDS = [
+  "block_build",
   "hyrox_sub_115",
   "march_setback",
   "summer_gap",
@@ -51,11 +52,25 @@ describe("planted storylines", () => {
     expect(notesOn("2025-07-07")).toContain("First day back. Slow.");
   });
 
-  it("deadlift 4x4 sits at 265 for 8+ weeks then breaks to 275+", () => {
+  it("deadlift 4x4 sits at 265 for three blocks then breaks to 275+", () => {
     const s = deadliftTopSets();
-    expect(longestRunAt(s, 265)).toBeGreaterThanOrEqual(8);
+    expect(longestRunAt(s, 265)).toBeGreaterThanOrEqual(4);
     expect(firstAfterRun(s, 265)).toBeGreaterThanOrEqual(275);
     expect(s.at(-1)!.lbs).toBeGreaterThanOrEqual(285);
+  });
+
+  it("runs Club Hybrid in 13 eight-week blocks with deadlift 4x4 in weeks 6 and 8", () => {
+    expect(expected.blocks).toHaveLength(13);
+    expect(expected.blocks[0]).toEqual({ block: 1, from: "2024-10-28", to: "2024-12-22" });
+    expect(expected.blocks.at(-1)).toEqual({ block: 13, from: "2026-08-31", to: "2026-10-25" });
+    const weekOf = (date: string) => Math.floor((Date.parse(date) - Date.parse("2024-10-28")) / (7 * 86_400_000)) % 8 + 1;
+    expect(new Set(deadliftTopSets().map((s) => weekOf(s.date)))).toEqual(new Set([6, 8]));
+  });
+
+  it("builds across the blocks: more 40-min AMRAP rounds and threshold reps", () => {
+    const blocks = expected.storylines.find((x: any) => x.id === "block_build").facts.blocks;
+    expect(blocks.at(-1).amrap40W8).toBeGreaterThan(blocks[0].amrap40W8 + 1);
+    expect(blocks.at(-1).thresholdRepsW8).toBeGreaterThan(blocks[0].thresholdRepsW8 + 30);
   });
 
   it("has a 14-week run of 4+ sessions", () => {

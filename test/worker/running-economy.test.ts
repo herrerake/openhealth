@@ -24,14 +24,14 @@ describe("running form on a session", () => {
     const t = await timelineOn("2026-10-25");
     const agg = fixtureAppleRecords.find((r) => r.kind === "hr_aggregate" && r.localDate === "2026-10-25")!.payload as HrAggregatePayload;
     expect(t.running).toEqual({
-      powerW: 219,
-      speedMps: 3.03,
+      powerW: 222,
+      speedMps: 3.06,
       strideM: 1.06,
-      groundContactMs: 262,
+      groundContactMs: 261,
       verticalOscillationCm: 9.1,
-      distanceM: 9990,
-      paceSPerKm: 330,
-      metersPerBeat: metersPerBeat(9990, 3300, agg.avg),
+      distanceM: 9970,
+      paceSPerKm: 327,
+      metersPerBeat: metersPerBeat(9970, 3260, agg.avg),
       verticalRatioPct: 8.6,
       wholeRace: false,
     });

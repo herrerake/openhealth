@@ -83,12 +83,13 @@ openhealth/
 
 - **Window:** 2024-10-28 → 2026-10-25, 104 weeks.
 - **Time zone:** America/Chicago (Austin) with real DST, using `Intl.DateTimeFormat` offsets. Each Apple timestamp carries the offset in effect on its date.
-- **Weekly template:** Club Hybrid Mon/Wed/Fri 07:00 (strength, threshold intervals, AMRAP; copied from the real WodUp programming), Run Club at the track Tue/Thu 07:00, sometimes an easy Saturday run, with realistic variation:
+- **Club Hybrid blocks (D-046):** 13 eight-week blocks on the gym's calendar, starting with the window. Every block repeats one week-by-week template copied from a real Club Hybrid block. Strength goes from 4x6 @ 60% to 4x4 @ 80%, and conditioning from Zone 2 continuous work through tempo and threshold rounds to race-specific work. Race weeks swap in strength maintenance and an EMOM. WodUp has no block or week field, so `expected.json → blocks[]` holds the calendar.
+- **Weekly template:** Club Hybrid Mon/Wed/Fri 07:00 (strength, conditioning, the long piece; the week of the block picks the workout), Run Club at the track Tue/Thu 07:00, sometimes an easy Saturday run, with realistic variation:
   - attendance 3–6 sessions/week;
   - holiday dips;
   - about one track day in ten exists only on the watch.
 - **Races:** four HYROX Men's Open results (March and September of both years), logged on the watch as Outdoor Run (D-037), in a fourth source shaped like results.hyrox.com (D-036).
-- **Benchmarks:** HYROX finish, 5k time trial (first Thursday of the month), 40-min AMRAP (every fourth Friday), deadlift 4x4, and 6 x 800m @ 3:20 every other Tuesday for matched heart-rate comparisons.
+- **Benchmarks:** HYROX finish, 5k time trial (first Thursday of the month), 40-min AMRAP (Friday of week 8), deadlift 4x4 (Mondays of weeks 6 and 8), threshold intervals (Wednesdays of weeks 6 and 8), and 6 x 800m @ 3:20 every other Tuesday for matched heart-rate comparisons.
 - **Heart rate follows the blocks:** each workout is a list of blocks with a target effort over time; heart rate chases it with a lag, and one fitness curve drives every benchmark and response. `expected.json → timelines[]` records the true block times so the session timeline can be scored (D-038).
 - **Storylines and decoys:** as Playbook §8. Each one is written to `expected.json → storylines[]` and `decoys[]`.
 - **12 edge cases:** kept in the final 4 weeks, moved onto Henry's week. Their reconciliation assertions (sessions, duplicates, conflicts, unmatched visits) still hold.
