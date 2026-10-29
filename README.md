@@ -39,7 +39,7 @@ The app is Astro static pages with shadcn/ui React islands, served by the same W
 |---|---|
 | `npm run dev` | Builds the site and runs `wrangler dev` on :8787 (API, agents, demo providers and pages) |
 | `npm run dev:web` | Astro dev server with hot reload. It proxies `/api`, `/agents` and `/mock` to a running `wrangler dev`. |
-| `npm run e2e` | Playwright end-to-end tests against `wrangler dev` with isolated local state (`.wrangler/e2e`) |
+| `npm run e2e` | Playwright end-to-end tests against `wrangler dev` with isolated local state (`.wrangler/e2e`), on port 8788 (set `E2E_PORT` if another server holds it; a server already on the port is reused) |
 
 The flow:
 1. `/onboarding`: profile.

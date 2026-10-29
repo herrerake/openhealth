@@ -25,6 +25,21 @@ test("shows the record book with scoped bests", async () => {
   await expect(page.getByTestId("record-deadlift_4x4")).toContainText("295 lb");
 });
 
+test("shows block progress: where Henry is, week 6 against week 8, and block over block", async () => {
+  await page.goto("/dashboard");
+  const tile = page.getByTestId("tile-block_progress");
+  await expect(tile).toContainText("Week 8 of 8, Block 13");
+  await expect(page.getByTestId("block-threshold_intervals-week-6")).toContainText("190 reps");
+  await expect(page.getByTestId("block-threshold_intervals-week-8")).toContainText("193 reps");
+  await expect(page.getByTestId("block-threshold_intervals-week-8")).toContainText(/avg HR \d+/);
+  await expect(page.getByTestId("block-threshold_intervals")).toContainText("+3 reps this block");
+  await expect(page.getByTestId("block-deadlift_4x4-week-8")).toContainText("285 lb");
+  await expect(page.getByTestId("block-amrap_40-week-8")).toContainText("5.6 rounds");
+  await expect(page.getByTestId("block-amrap_40")).toContainText("+1.4 rounds since block 1");
+  await tile.getByRole("button", { name: "How this was calculated" }).click();
+  await expect(page.getByRole("dialog")).toContainText("8-week blocks from 2024-10-28");
+});
+
 test("opens a record's full history from the record book", async () => {
   await page.goto("/dashboard");
   await page.getByTestId("record-hyrox_total").click();

@@ -8,6 +8,7 @@ import { getDashboard, getMe, getProviders, isConnected, type Me, onUnauthorized
 import { formatBenchmark, formatSleep } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Band from "./charts/Band";
+import BlockDots from "./charts/BlockDots";
 import Heatmap, { type HeatDay } from "./charts/Heatmap";
 import MixBar from "./charts/MixBar";
 import Sparkline from "./charts/Sparkline";
@@ -39,22 +40,24 @@ const TITLES: Record<string, string> = {
   recent_sessions: "Recent sessions",
   training_mix: "Training mix · 8 weeks",
   running_economy: "Running economy",
+  block_progress: "Block progress",
   stories_placeholder: "Stories",
 };
 
-// Desktop follows the spec order on a 4-column grid; phones reorder to ask → week → review → records → running → recent.
+// Desktop follows the spec order on a 4-column grid; phones reorder to ask → week → review → records → blocks → running → recent.
 const LAYOUT: Record<string, string> = {
   week_sessions: "order-1",
   review_queue: "order-2 lg:col-span-1",
   record_book: "order-3 sm:col-span-2 lg:col-span-3",
-  running_economy: "order-4 sm:col-span-2 lg:col-span-4",
-  recent_sessions: "order-5 sm:col-span-2",
-  streak: "order-6",
-  rhr_3d: "order-7",
-  hrv_3d: "order-8",
-  heatmap_52w: "order-9 sm:col-span-2 lg:col-span-4",
-  training_mix: "order-10",
-  stories_placeholder: "order-11",
+  block_progress: "order-4 sm:col-span-2 lg:col-span-4",
+  running_economy: "order-5 sm:col-span-2 lg:col-span-4",
+  recent_sessions: "order-6 sm:col-span-2",
+  streak: "order-7",
+  rhr_3d: "order-8",
+  hrv_3d: "order-9",
+  heatmap_52w: "order-10 sm:col-span-2 lg:col-span-4",
+  training_mix: "order-11",
+  stories_placeholder: "order-12",
 };
 
 const SOURCE_SHORT: Record<string, string> = { mindbody: "MB", wodup: "WU", apple_health: "⌚" };
@@ -112,6 +115,83 @@ function Tile({ t, children, className }: { t: Envelope; children: ReactNode; cl
 
 const Big = ({ children }: { children: ReactNode }) => <div className="text-2xl font-semibold tracking-tight">{children}</div>;
 const Context = ({ children }: { children: ReactNode }) => <div className="text-xs text-muted-foreground">{children}</div>;
+
+const HR_METHOD: Record<string, string> = { duration_match: "estimated block times", ai_match: "estimated block times" };
+
+/** Where the athlete is in the block, the repeated sessions inside it, and the same week block over block. */
+function BlockProgress({ t }: { t: Envelope }) {
+  const v = t.value;
+  return (
+    <div id="block-progress" className="grid gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Big>{t.display}</Big>
+          <Context>{t.context}</Context>
+        </div>
+        <ol className="flex gap-1" aria-label={`Week ${v.week} of ${v.weeks}`}>
+          {Array.from({ length: v.weeks }, (_, i) => (
+            <li
+              key={i}
+              aria-current={i + 1 === v.week ? "step" : undefined}
+              className={cn(
+                "grid h-6 w-7 place-items-center rounded-sm text-[11px] tabular-nums",
+                i + 1 < v.week && "bg-chart-1/25 text-foreground",
+                i + 1 === v.week && "bg-chart-1 font-semibold text-primary-foreground",
+                i + 1 > v.week && "border text-muted-foreground",
+              )}
+            >
+              {i + 1}
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+        {v.sessions.map((s: any) => {
+          const series = s.blocks.flatMap((b: any) => {
+            const e = b.entries.find((x: any) => x.week === s.compareWeek);
+            return e ? [{ block: b.block, value: e.value, display: e.display }] : [];
+          });
+          return (
+            <div key={s.key} data-testid={`block-${s.key}`} className="grid content-start gap-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium">{s.label}</span>
+                {s.inBlockChangeDisplay && <span className="text-xs text-muted-foreground">{s.inBlockChangeDisplay} this block</span>}
+              </div>
+              <div className="divide-y rounded-md border text-sm">
+                {s.thisBlock.map((w: any) => (
+                  <div key={w.week} data-testid={`block-${s.key}-week-${w.week}`} className="flex items-baseline gap-3 px-2.5 py-1.5">
+                    <span className="w-14 shrink-0 text-xs text-muted-foreground">Week {w.week}</span>
+                    {w.entry ? (
+                      <>
+                        <a href={`/session/?key=${encodeURIComponent(w.entry.sessionKey)}`} className="font-semibold tabular-nums underline-offset-4 hover:underline">
+                          {w.entry.display}
+                        </a>
+                        {w.entry.avgHr != null && (
+                          <span className="ml-auto text-xs text-muted-foreground tabular-nums" title={HR_METHOD[w.entry.hrMethod] ?? undefined}>
+                            avg HR {w.entry.avgHr}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{w.week > v.week ? "coming up" : "not logged"}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <BlockDots points={series} current={v.block} label={`${s.label}, week ${s.compareWeek} of each block`} />
+              <Context>
+                Week {s.compareWeek} of each block{s.sinceFirst ? ` · ${s.sinceFirst.display} since block ${s.sinceFirst.fromBlock}` : ""}
+              </Context>
+            </div>
+          );
+        })}
+      </div>
+      {v.sessions.some((s: any) => s.thisBlock.some((w: any) => w.entry?.avgHr != null)) && (
+        <Context>Heart rate is the average over that part of the class, by estimated block times.</Context>
+      )}
+    </div>
+  );
+}
 
 function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) => void }) {
   switch (t.type) {
@@ -219,6 +299,8 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
       );
     case "training_mix":
       return <MixBar shares={t.value} />;
+    case "block_progress":
+      return <BlockProgress t={t} />;
     case "running_economy":
       return (
         <div id="running-economy" className="grid gap-3">
