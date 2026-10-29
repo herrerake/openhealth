@@ -19,8 +19,10 @@ Professional athletes have analysts, data desks, and reporters. Amateurs have a 
 ## 2. Who it's for
 
 1. **The athlete.** An amateur who trains seriously and logs it across tools. Examples:
-   - a CrossFit athlete using WodUp, Mindbody, and an Apple Watch;
-   - a marathoner and HYROX racer with race results, a Garmin, and a training calendar.
+   - a HYROX racer training at a gym on WodUp and Mindbody, with an Apple Watch;
+   - a marathoner with race results, a Garmin, and a training calendar.
+
+   HYROX racers and marathoners come first, including athletes who do both (D-050). Other sports follow once those two are right.
 2. **Their followers.** Family, friends, a run club, a coach. They follow the athlete's coverage the way fans follow a team.
 
 The athlete comes first. Followers see only what the athlete approves.

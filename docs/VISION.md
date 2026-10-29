@@ -36,6 +36,8 @@ Everyday athletes in endurance and fitness sports with a real competitive struct
 - **Obstacle racing**: Spartan and similar.
 - **Cycling**: amateur road racing, gran fondos, the rider who follows the Tour de France and chases their own climbs.
 
+**We start with HYROX and marathon running (D-050).** Kevin trains and races in both and knows the athletes, so we can get the coverage right for a real group of people before adding the other sports.
+
 Each sport has its own "league": its seasons, benchmark tests, race calendar, and the numbers its athletes care about. The product should speak each sport's language and not flatten them into generic "workouts."
 
 The athlete comes first. Their followers (family, friends, a run club, a coach) are the audience, and they see only what the athlete chooses to share.
@@ -116,6 +118,5 @@ Ask these when choosing between options, scoping a feature, or reviewing a chang
 ## 10. Open questions
 
 - What does "public" mean for an amateur? Pro stats are open by default; ours are private by default and shared by choice. Where is the line between a follower page and a public athlete page?
-- Which sport comes after CrossFit (D-015)? Running and HYROX have the clearest official results.
 - How much of the coverage is per-athlete versus comparative (age-group rankings, a run club's leaderboard)?
 - Which non-screen surface comes first: a voice assistant, the watch, or the car? Each depends on platform access we don't control yet.
