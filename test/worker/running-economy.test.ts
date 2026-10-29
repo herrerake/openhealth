@@ -33,13 +33,14 @@ describe("running form on a session", () => {
       paceSPerKm: 327,
       metersPerBeat: metersPerBeat(9970, 3260, agg.avg),
       verticalRatioPct: 8.6,
+      cadenceSpm: 173,
       wholeRace: false,
     });
   });
 
   it("leaves out distance-based figures on race day, where indoor GPS is unreliable", async () => {
     const t = await timelineOn("2026-09-19");
-    expect(t.running).toMatchObject({ wholeRace: true, distanceM: null, paceSPerKm: null, metersPerBeat: null, groundContactMs: 239 });
+    expect(t.running).toMatchObject({ wholeRace: true, distanceM: null, paceSPerKm: null, metersPerBeat: null, cadenceSpm: null, groundContactMs: 239 });
   });
 
   it("is absent for a class the watch logged as strength", async () => {
@@ -69,7 +70,7 @@ describe("running economy tile", () => {
 
   it("compares the latest 4 steady runs with the first 4", async () => {
     const t = await get("/api/tiles/running_economy?asOf=2026-10-25");
-    const places: Record<string, number> = { metersPerBeat: 2, paceSPerKm: 0, groundContactMs: 0, verticalRatioPct: 1, verticalOscillationCm: 1, strideM: 2, powerW: 0 };
+    const places: Record<string, number> = { metersPerBeat: 2, paceSPerKm: 0, groundContactMs: 0, verticalRatioPct: 1, verticalOscillationCm: 1, strideM: 2, cadenceSpm: 0, powerW: 0 };
     const round = (n: number, p: number) => Math.round(n * 10 ** p) / 10 ** p;
     for (const m of t.value.metrics) {
       const v = m.series.map((p: any) => p.value);
@@ -79,6 +80,9 @@ describe("running economy tile", () => {
     }
     const mpb = t.value.metrics.find((m: any) => m.key === "metersPerBeat");
     expect(t.value.metrics.find((m: any) => m.key === "groundContactMs").better).toBe("lower");
+    const cadence = t.value.metrics.find((m: any) => m.key === "cadenceSpm");
+    expect(cadence).toMatchObject({ better: null, note: "rises with pace" });
+    expect(cadence.series.at(-1).value).toBe((await timelineOn("2026-10-25")).running.cadenceSpm);
     expect(t.display).toBe(`${mpb.nowDisplay} m per beat`);
     expect(t.spoken).toContain(mpb.nowDisplay);
     expect(t.spoken).toContain(mpb.thenDisplay);

@@ -319,6 +319,7 @@ function TileBody({ t, onReview }: { t: Envelope; onReview: (item: ReviewItem) =
                 <Context>
                   {m.thenDisplay != null ? `was ${m.thenDisplay}` : "one run so far"}
                   {m.better ? ` · ${m.better} is better` : ""}
+                  {m.note ? ` · ${m.note}` : ""}
                 </Context>
               </div>
             ))}

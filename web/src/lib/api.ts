@@ -67,6 +67,7 @@ export interface RunningSummary {
   paceSPerKm: number | null;
   metersPerBeat: number | null;
   verticalRatioPct: number | null;
+  cadenceSpm: number | null;
   wholeRace: boolean;
 }
 export interface Timeline {

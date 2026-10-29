@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPace, metersPerBeat, paceSPerKm, runningForm, verticalRatioPct } from "../../src/core/running";
+import { cadenceSpm, formatPace, metersPerBeat, paceSPerKm, runningForm, verticalRatioPct } from "../../src/core/running";
 
 describe("running form", () => {
   it("converts the watch's units", () => {
@@ -26,9 +26,15 @@ describe("running form", () => {
     expect(verticalRatioPct(9.1, 1.06)).toBe(8.6);
   });
 
+  it("derives cadence in steps per minute from speed and stride", () => {
+    // Apple's stride length is one step, so 3.06 m/s over 1.06 m is 173 steps a minute.
+    expect(cadenceSpm(3.06, 1.06)).toBe(173);
+  });
+
   it("refuses to divide by nothing", () => {
     expect(paceSPerKm(0, 3300)).toBeNull();
     expect(metersPerBeat(9990, 3300, 0)).toBeNull();
     expect(verticalRatioPct(9.1, 0)).toBeNull();
+    expect(cadenceSpm(3.06, 0)).toBeNull();
   });
 });

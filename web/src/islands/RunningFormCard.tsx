@@ -17,6 +17,7 @@ function stats(r: RunningSummary): Stat[] {
     { label: "Meters per heartbeat", value: r.metersPerBeat != null ? r.metersPerBeat.toFixed(2) : null, hint: "distance ÷ total beats · higher is better" },
     { label: "Ground contact", value: r.groundContactMs != null ? `${r.groundContactMs} ms` : null, hint: "lower is better" },
     { label: "Stride length", value: r.strideM != null ? `${r.strideM.toFixed(2)} m` : null, hint: "average" },
+    { label: "Cadence", value: r.cadenceSpm != null ? `${r.cadenceSpm} spm` : null, hint: "steps a minute · rises with pace" },
     { label: "Vertical oscillation", value: r.verticalOscillationCm != null ? `${r.verticalOscillationCm.toFixed(1)} cm` : null, hint: "lower is better" },
     { label: "Vertical ratio", value: r.verticalRatioPct != null ? `${r.verticalRatioPct.toFixed(1)}%` : null, hint: "bounce ÷ stride · lower is better" },
     { label: "Power", value: r.powerW != null ? `${r.powerW} W` : null, hint: "average" },
@@ -48,7 +49,7 @@ export default function RunningFormCard({ running, trended }: { running: Running
         </dl>
         <p className="text-xs text-muted-foreground">
           {running.wholeRace
-            ? "Averaged by the watch across the whole race, stations included. Indoor GPS distance isn't reliable, so pace and meters per heartbeat are left out."
+            ? "Averaged by the watch across the whole race, stations included. Indoor GPS distance isn't reliable, so pace and meters per heartbeat are left out. Cadence is left out too: across the stations it doesn't describe your running."
             : "Averages your watch recorded for the whole run."}
         </p>
       </CardContent>
