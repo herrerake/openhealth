@@ -1,6 +1,6 @@
 # OpenHealth
 
-ESPN-style coverage for amateur athletes. OpenHealth points a camera at the everyday athlete (marathoner, triathlete, HYROX racer, CrossFitter, Spartan racer, cyclist): it gathers their real training and competition data into one owned history and gives it back as dashboards and data-backed stories that are authentic, compelling and informative. Human first, built AI first, as a factory: AI assembles each athlete's coverage inside rules that keep every fact true. We build for screens today, but the direction is voice: the athlete asks, and the answer is spoken or shown on whatever surface they're on (phone, watch, car, glasses). Dashboards are specs any surface can render, never layouts tied to one page.
+ESPN-style coverage for amateur athletes. OpenHealth points a camera at the everyday athlete (marathoner, triathlete, HYROX racer, CrossFitter, Spartan racer, cyclist), starting with HYROX racers and marathoners (D-050): it gathers their real training and competition data into one owned history and gives it back as dashboards and data-backed stories that are authentic, compelling and informative. Human first, built AI first, as a factory: AI assembles each athlete's coverage inside rules that keep every fact true. We build for screens today, but the direction is voice: the athlete asks, and the answer is spoken or shown on whatever surface they're on (phone, watch, car, glasses). Dashboards are specs any surface can render, never layouts tied to one page.
 
 ## Read first
 
