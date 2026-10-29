@@ -50,6 +50,10 @@ export const metersPerBeat = (distanceM: number, durationS: number, avgHr: numbe
 export const verticalRatioPct = (verticalOscillationCm: number, strideM: number): number | null =>
   verticalOscillationCm > 0 && strideM > 0 ? round(verticalOscillationCm / strideM, 1) : null;
 
+/** Steps per minute: speed over stride length, which Apple measures per step. It rises with pace, so it's read next to pace. */
+export const cadenceSpm = (speedMps: number, strideM: number): number | null =>
+  speedMps > 0 && strideM > 0 ? Math.round((speedMps / strideM) * 60) : null;
+
 export function formatPace(sPerKm: number): string {
   const s = Math.round(sPerKm);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} /km`;

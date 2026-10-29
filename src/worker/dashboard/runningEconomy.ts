@@ -1,4 +1,4 @@
-import { formatPace, metersPerBeat, paceSPerKm, round, verticalRatioPct } from "../../core/running";
+import { cadenceSpm, formatPace, metersPerBeat, paceSPerKm, round, verticalRatioPct } from "../../core/running";
 import type { TileEnvelope } from "./spec";
 import { type TileContext, addDays, emptyTile } from "./tiles";
 
@@ -19,18 +19,21 @@ interface EconomyRun {
   verticalRatioPct: number | null;
   verticalOscillationCm: number | null;
   strideM: number | null;
+  cadenceSpm: number | null;
   powerW: number | null;
 }
 
 type MetricKey = Exclude<keyof EconomyRun, "date" | "sessionKey">;
 
-const METRICS: { key: MetricKey; label: string; better: "higher" | "lower" | null; places: number; format: (v: number) => string }[] = [
+// `note` is a plain fact shown under the stat in place of a direction.
+const METRICS: { key: MetricKey; label: string; better: "higher" | "lower" | null; note?: string; places: number; format: (v: number) => string }[] = [
   { key: "metersPerBeat", label: "Meters per heartbeat", better: "higher", places: 2, format: (v) => v.toFixed(2) },
   { key: "paceSPerKm", label: "Avg pace", better: "lower", places: 0, format: formatPace },
   { key: "groundContactMs", label: "Ground contact", better: "lower", places: 0, format: (v) => `${v} ms` },
   { key: "verticalRatioPct", label: "Vertical ratio", better: "lower", places: 1, format: (v) => `${v.toFixed(1)}%` },
   { key: "verticalOscillationCm", label: "Vertical oscillation", better: "lower", places: 1, format: (v) => `${v.toFixed(1)} cm` },
   { key: "strideM", label: "Stride length", better: null, places: 2, format: (v) => `${v.toFixed(2)} m` },
+  { key: "cadenceSpm", label: "Cadence", better: null, note: "rises with pace", places: 0, format: (v) => `${v} spm` },
   { key: "powerW", label: "Power", better: null, places: 0, format: (v) => `${v} W` },
 ];
 
@@ -38,6 +41,7 @@ const DESCRIPTION =
   `Steady runs from the last ${WEEKS} weeks: runs on your own (not a class or a race) that your watch recorded as one continuous effort, ` +
   "20 minutes or longer, with no time trial. Intervals and races mix efforts in one workout, so they're left out. " +
   "Meters per heartbeat is distance divided by total beats (duration × average heart rate). " +
+  "Cadence is steps per minute, your watch's speed divided by its stride length. It rises with pace, so read it next to your pace. " +
   `Each trend compares the average of your latest ${COMPARE_RUNS} steady runs with your first ${COMPARE_RUNS} in the window.`;
 
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -83,6 +87,7 @@ async function steadyRuns(ctx: TileContext, from: string, to: string): Promise<{
     const distanceM = of("distance_m");
     const hr = of("hr_avg", `hr:${workout.natural_key}`);
     const stride = of("run_stride_m");
+    const speed = of("run_speed_mps");
     const vo = of("run_vo_cm");
     runs.push({
       date: workout.local_date,
@@ -93,6 +98,7 @@ async function steadyRuns(ctx: TileContext, from: string, to: string): Promise<{
       verticalRatioPct: vo != null && stride != null ? verticalRatioPct(vo, stride) : null,
       verticalOscillationCm: vo,
       strideM: stride,
+      cadenceSpm: speed != null && stride != null ? cadenceSpm(speed, stride) : null,
       powerW: of("run_power_w"),
     });
     recordIds.push(workout.source_record_id);
@@ -116,6 +122,7 @@ export async function runningEconomy(ctx: TileContext): Promise<TileEnvelope> {
         key: m.key,
         label: m.label,
         better: m.better,
+        note: m.note ?? null,
         compared,
         now,
         then,

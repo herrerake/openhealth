@@ -1,5 +1,5 @@
 import type { AppleWorkoutPayload, HrAggregatePayload } from "../../core/normalize";
-import { metersPerBeat, paceSPerKm, runningForm, verticalRatioPct } from "../../core/running";
+import { cadenceSpm, metersPerBeat, paceSPerKm, runningForm, verticalRatioPct } from "../../core/running";
 import {
   type HrPoint,
   type TimelineBlock,
@@ -18,7 +18,8 @@ import { aiMatch } from "./aiMatch";
 
 /**
  * Distance, pace and running form for a watch run. On race day the watch's indoor distance is
- * unreliable (D-037), so pace and meters per heartbeat, which depend on it, are left out.
+ * unreliable (D-037), so pace and meters per heartbeat, which depend on it, are left out. So is
+ * cadence: averaged across the stations as well as the runs, it doesn't describe the running (D-051).
  */
 function running(p: AppleWorkoutPayload, totalS: number, avgHr: number | null, race: boolean) {
   const form = runningForm(p.statistics);
@@ -31,6 +32,7 @@ function running(p: AppleWorkoutPayload, totalS: number, avgHr: number | null, r
     paceSPerKm: distanceM != null ? paceSPerKm(distanceM, durationS) : null,
     metersPerBeat: distanceM != null && avgHr != null ? metersPerBeat(distanceM, durationS, avgHr) : null,
     verticalRatioPct: form.verticalOscillationCm != null && form.strideM != null ? verticalRatioPct(form.verticalOscillationCm, form.strideM) : null,
+    cadenceSpm: !race && form.speedMps != null && form.strideM != null ? cadenceSpm(form.speedMps, form.strideM) : null,
     wholeRace: race,
   };
 }
